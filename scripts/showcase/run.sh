@@ -13,6 +13,10 @@ export SHOWCASE_BASE="$base"
 args=(--duration 0 --procs 4 --seed 1)
 case "$target" in
     tmpfs)           pkgs=();                          mounts="$("$here/tmpfs.sh")" ;;
+    ext4)            pkgs=(e2fsprogs);                 mounts="$("$here/localfs.sh" ext4)" ;;
+    xfs)             pkgs=(xfsprogs);                  mounts="$("$here/localfs.sh" xfs)" ;;
+    btrfs)           pkgs=(btrfs-progs);               mounts="$("$here/localfs.sh" btrfs)" ;;
+    overlayfs)       pkgs=();                          mounts="$("$here/overlayfs.sh")" ;;
     davfs2)          pkgs=(davfs2 apache2);            mounts="$("$here/davfs2.sh")" ;;
     sshfs)           pkgs=(sshfs openssh-server);      mounts="$("$here/sshfs.sh")" ;;
     bindfs)          pkgs=(bindfs fuse3);              mounts="$("$here/bindfs.sh")" ;;

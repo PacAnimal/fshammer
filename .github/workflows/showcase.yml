@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [tmpfs, davfs2, sshfs, bindfs, bindfs-single, rclone,
+        target: [tmpfs, ext4, xfs, btrfs, overlayfs, davfs2, sshfs, bindfs, bindfs-single, rclone,
                  samba, knfsd-v3, knfsd-v4.2, ganesha-v4.1,
                  u9fs-none, u9fs-mmap, diod-none, diod-loose, diod-mmap]
     steps:
@@ -61,3 +61,28 @@ jobs:
           set -- ${{ matrix.repro }}
           script="$1"; shift
           scripts/showcase/repro/$script.sh "$@"
+
+  # badge JSON per target and a summary, force-pushed as one commit to the orphan "status" branch
+  status:
+    needs: showcase
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'assert')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: showcase-*
+          path: ${{ runner.temp }}/artifacts
+      - run: |
+          out="$RUNNER_TEMP/status"
+          python3 scripts/showcase/status.py "$RUNNER_TEMP/artifacts" "$out" \
+              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          cd "$out"
+          git init -q
+          git checkout -q --orphan status
+          git add .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Showcase status"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/$GITHUB_REPOSITORY.git" status

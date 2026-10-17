@@ -5,6 +5,7 @@ The outcome is the set of FAIL signatures, read from an expectations file with o
 
     FAIL locks/conflict_excludes:        must appear
     ? FAIL shared.bin:                   may appear (seen in some recorded runs, not all)
+    ? TIMEOUT                            fshammer may not finish; the other lines are then not required
 
 The job fails if fshammer does not finish, its exit code does not match whether it printed FAIL lines, a
 required signature is missing, or a signature appears that the file does not list.
@@ -15,24 +16,50 @@ With --record N it asserts nothing: it runs fshammer N times in fresh directorie
 writes a proposed expectations file to DIR/expected.txt.
 """
 import argparse
+import json
 import os
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 
 HAMMER = pathlib.Path(__file__).resolve().parents[2] / "fshammer.py"
 
 
-def run(hammer_args: list[str], timeout: int) -> tuple[int | None, str, str]:
-    try:
-        proc = subprocess.run([sys.executable, str(HAMMER), *hammer_args],
-                              capture_output=True, text=True, timeout=timeout, check=False)
-        return proc.returncode, proc.stdout, proc.stderr
-    except subprocess.TimeoutExpired as exc:
-        out = exc.stdout.decode() if isinstance(exc.stdout, bytes) else exc.stdout or ""
-        err = exc.stderr.decode() if isinstance(exc.stderr, bytes) else exc.stderr or ""
-        return None, out, err
+def snapshot(sid: int) -> str:
+    """Each process of a run that did not finish: its state, what it waits on in the kernel, and its stack."""
+    ps = subprocess.run(["ps", "-e", "-o", "pid=,sid=,stat=,wchan:32=,args="], capture_output=True, text=True)
+    mine = [line for line in ps.stdout.splitlines() if line.split()[1:2] == [str(sid)]]
+    lines = ["PID SID STAT WCHAN COMMAND", *mine]
+    for pid in (line.split()[0] for line in mine):
+        try:
+            stack = subprocess.run(["sudo", "-n", "cat", f"/proc/{pid}/stack"], capture_output=True, text=True)
+            lines.append(f"--- /proc/{pid}/stack\n{stack.stdout or stack.stderr}")
+        except OSError as e:
+            lines.append(f"--- /proc/{pid}/stack unavailable: {e}")
+    return "\n".join(lines)
+
+
+def run(hammer_args: list[str], timeout: int, log: pathlib.Path, suffix: str = "") -> tuple[int | None, str, str]:
+    """Output goes to files: a process stuck in the kernel can keep a pipe open after it is killed."""
+    out_path, err_path = log / f"stdout{suffix}.txt", log / f"stderr{suffix}.txt"
+    with open(out_path, "w") as out, open(err_path, "w") as err:
+        proc = subprocess.Popen([sys.executable, str(HAMMER), *hammer_args], stdout=out, stderr=err,
+                                start_new_session=True)
+        try:
+            code = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            code = None
+            state = snapshot(proc.pid)
+            (log / f"hang{suffix}.txt").write_text(state)
+            print(f"fshammer did not finish within {timeout}s; process states:\n{state}")
+            os.killpg(proc.pid, signal.SIGKILL)
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                print("fshammer did not exit after SIGKILL")
+    return code, out_path.read_text(errors="replace"), err_path.read_text(errors="replace")
 
 
 def signature(line: str) -> str:
@@ -67,10 +94,8 @@ def record(args: argparse.Namespace, hammer_args: list[str]) -> int:
         # fresh directories for each run, and the server's view of them to match
         fresh = [f"{a}-{i}" if prev in ("--dir", "--alt-dir", "--server-root") else a
                  for prev, a in zip([""] + hammer_args, hammer_args)]
-        code, out, err = run(fresh, args.timeout)
-        (args.log / f"stdout-{i}.txt").write_text(out)
-        (args.log / f"stderr-{i}.txt").write_text(err)
-        found = signatures(err)
+        code, out, err = run(fresh, args.timeout, args.log, f"-{i}")
+        found = signatures(err) | ({"TIMEOUT"} if code is None else set())
         print(f"run {i}: exit {code}, {len(found)} FAIL signature(s)")
         runs.append(found)
     every = set.intersection(*runs)
@@ -106,9 +131,7 @@ def main() -> int:
         return record(args, hammer_args)
 
     required, allowed = load(args.expected)
-    code, out, err = run(hammer_args, args.timeout)
-    (args.log / "stdout.txt").write_text(out)
-    (args.log / "stderr.txt").write_text(err)
+    code, out, err = run(hammer_args, args.timeout, args.log)
     print(out)
     print("FAIL lines reported:")
     for line in err.splitlines():
@@ -119,11 +142,18 @@ def main() -> int:
     want = 1 if found else 0
     problems = []
     if code is None:
-        problems.append(f"fshammer did not finish within {args.timeout}s")
+        if "TIMEOUT" not in allowed:
+            problems.append(f"fshammer did not finish within {args.timeout}s")
     elif code != want:
         problems.append(f"fshammer exited {code}, expected {want}")
-    problems += [f"expected and missing: {s}" for s in sorted(required - found)]
+    if code is not None:
+        problems += [f"expected and missing: {s}" for s in sorted(required - found)]
     problems += [f"not expected: {s}" for s in sorted(found - required - allowed)]
+
+    # read by the workflow's status job
+    (args.log / "result.json").write_text(json.dumps({
+        "exit": code, "fails": len(found), "matched": not problems, "finished": code is not None,
+        "kernel": os.uname().release}))
 
     print()
     if problems:
