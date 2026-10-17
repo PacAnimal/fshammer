@@ -2,7 +2,7 @@
 
 fshammer run against filesystems that can be set up on a GitHub Actions runner (`ubuntu-24.04`, kernel
 `6.17.0-1022-azure`, Python 3.12), with a standalone reproducer for each behaviour this page calls a likely
-defect or leaves open.
+defect and for some of those it leaves open.
 
 Where it was practical, the software under test is built from its latest upstream release, because these
 results are meant to be reported upstream: davfs2 1.7.3, sshfs 3.7.6, bindfs 1.18.4, libfuse 3.18.3 (for
@@ -22,11 +22,12 @@ for 60 days.
 - **A target job** runs fshammer once (`--duration 0 --procs 4 --seed 1`) and compares its distinct failing
   checks with [`scripts/showcase/expected/<target>.txt`](https://github.com/PacAnimal/fshammer/tree/main/scripts/showcase/expected).
   A failing check is a `FAIL` line reduced to what precedes its first `: `, with a path reduced to its file
-  name and digits replaced by `N`, so one check that fails for many files counts once. The job fails if
-  fshammer does not finish, its exit code does not match whether it printed `FAIL` lines, a listed check is
-  missing, or an unlisted one appears. Checks marked `?` failed in some recorded runs and not others; they
-  are allowed but not required. Each listed check is tagged `[defect]`, `[open]` or `[limitation]`, matching
-  the labels on this page.
+  name and digits replaced by `N`, so one check that fails for many files counts once. The job fails if its
+  exit code does not match whether it printed `FAIL` lines, a listed check is missing, an unlisted one
+  appears, or fshammer does not finish within the target's timeout, unless the file lists `TIMEOUT` (it must
+  not finish) or `? TIMEOUT` (it may not). Checks marked `?` failed in some recorded runs and not others; they
+  are allowed but not required. Each listed check is tagged `[defect]`, `[follows]` (fails because of another
+  failure of the same target), `[open]` or `[limitation]`, matching the labels on this page.
 - **A reproducer job** runs a script from [`scripts/showcase/repro/`](https://github.com/PacAnimal/fshammer/tree/main/scripts/showcase/repro)
   that sets up the target and makes a few system calls, without fshammer.
   [`repros.txt`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repros.txt) states whether
@@ -36,9 +37,11 @@ for 60 days.
   the tip of `main`. A badge describes that run:
   - green `no failures`: fshammer exited 0 and printed no `FAIL` line;
   - yellow `N failing checks (documented)`: every failing check is tagged `[limitation]`;
-  - orange `N failing checks`: at least one failing check is a likely defect or not established;
-  - red `changed`, `reproducer changed`, `setup failed` or `did not finish`: the outcome differs from the
-    record, a reproducer's outcome differs, the target could not be set up, or fshammer did not finish.
+  - orange `N failing checks`: at least one failing check is tagged `[defect]`, `[follows]` or `[open]`;
+  - orange `does not finish`: fshammer did not finish, and the record says it does not;
+  - red `changed`, `reproducer changed` or `setup failed`: the outcome differs from the record (a hang that
+    was not recorded included), a reproducer's outcome differs, or the target could not be set up. A run
+    in which any job was cancelled publishes nothing.
 
   `N` counts distinct failing checks in that run, optional ones included.
 - Running the workflow by hand with `mode: record` runs each target three times and writes a proposed
@@ -53,64 +56,71 @@ scripts/showcase/repros.py run samba-hardlink /tmp/r   # one reproducer
 
 Only in a throwaway VM or container, with sudo. The setup scripts:
 
-- install Ubuntu packages, and build and install davfs2, sshfs, bindfs, libfuse and diod under `/usr/local`
-  (downloaded from their release pages and checked against a SHA-256), NFS-Ganesha from a `git clone` of its
-  release tag (checked against the tag's commit), u9fs from a `git clone`, and rclone from a `.deb`
-  downloaded from downloads.rclone.org;
+- install Ubuntu packages (among them nfs-kernel-server, nfs-common, rpcbind, samba, cifs-utils, apache2,
+  openssh-server, fuse3, build-essential and git), and build and install davfs2, sshfs, bindfs, libfuse and
+  diod under `/usr/local` (downloaded from their release pages and checked against a SHA-256), NFS-Ganesha
+  from a `git clone` of its release tag (checked against the tag's commit), u9fs from a `git clone`, and
+  rclone from a `.deb` from downloads.rclone.org (checked against the SHA-256 rclone publishes);
 - overwrite `/etc/exports` and `/etc/samba/smb.conf`, write `/etc/ganesha/showcase.conf` and an Apache
   configuration, enable Apache's `dav` and `dav_fs` modules, and append to `/etc/davfs2/secrets`;
-- add a system user `davfs2`, an SSH key to `~/.ssh/authorized_keys`, and a Samba password (`showcase`) for
-  the current user;
-- set the NFS server's NFSv4 grace and lease times and the NLM grace period to 10 seconds;
+- add a system user `davfs2`; generate an SSH key `~/.ssh/showcase` and add it to `~/.ssh/authorized_keys`;
+  set a Samba password (`showcase`) for the current user;
+- stop the kernel NFS server where it was started by its package, and set its NFSv4 grace and lease times and
+  the NLM grace period to 10 seconds;
+- start rpcbind, rpc.statd, rpc.mountd, nfsd, smbd, sshd, NFS-Ganesha, u9fs and diod, and restart Apache.
+  u9fs (`-a none`) and diod (`--no-auth`) run as root and listen on loopback without authentication, so any
+  local user can attach to them as root;
 - for the two-client targets, create a network namespace `fshammer-client2` and a veth pair (`fshv0`, with
   10.231.0.1/24 on the host side);
 - start servers, and leave everything mounted and running. Nothing is cleaned up.
 
-ext4, XFS and Btrfs are mounted from a sparse loop image and bind-mounted a second time, so both mounts are
-one filesystem and fshammer reports that as a gap. overlayfs has an empty lower directory, so files are never
-copied up. Samba, knfsd, NFS-Ganesha and the 9p servers export a loop-mounted ext4 image. sshfs, bindfs,
+tmpfs, ext4, XFS, Btrfs and overlayfs are mounted once and bind-mounted a second time, so both mounts are
+one filesystem and fshammer reports that as a gap; ext4, XFS and Btrfs are on sparse loop images. overlayfs has
+an empty lower directory, so files are never copied up. Samba, knfsd, NFS-Ganesha and the 9p servers export a loop-mounted ext4 image. sshfs, bindfs,
 rclone and Apache serve a directory on the runner's own filesystem. None of these runs fills a filesystem or
 uses `--crash-command`, so ENOSPC handling and durability across a crash are not covered here.
 
 ## Results
 
 <!-- showcase-table -->
-| Target | Version | Distinct failing checks | Reproducers |
-|---|---|---|---|
-| tmpfs, mounted twice (control) | kernel | 0 |  |
-| ext4 on a loop image, bind-mounted twice | kernel | 0 |  |
-| XFS on a loop image, bind-mounted twice | kernel | 0 |  |
-| Btrfs on a loop image, bind-mounted twice | kernel | 0 |  |
-| overlayfs over ext4, mounted twice | kernel | 0 |  |
-| [knfsd, NFSv3, mounted twice on one client](#knfsd) | kernel | 0, 1 optional | 1 |
-| [knfsd, NFSv4.2, mounted twice on one client](#knfsd) | kernel | 0, 2 optional | 2 |
-| [knfsd, NFSv4.2, two clients](#knfsd) | kernel | 0 | 1 |
-| [NFS-Ganesha, NFSv3, mounted twice on one client](#nfs-ganesha) | 15.8 | 0; may not finish | 1 |
-| [NFS-Ganesha, NFSv4.0, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |
-| [NFS-Ganesha, NFSv4.1, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 1 optional | 1 |
-| [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 2 optional | 2 |
-| [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.8 | 0, 2 optional | 1 |
-| [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12 | 2 |
-| [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4 | 1 |
-| [davfs2, Ubuntu's package](#davfs2-170-ubuntu-2404) | 1.7.0 (Ubuntu) | 26, 1 optional | 1 |
-| [sshfs, mounted twice](#sshfs) | 3.7.6, libfuse 3.18.3 | 19 |  |
-| [bindfs, mounted once](#bindfs) | 1.18.4, libfuse 3.18.3 | 0 |  |
-| [bindfs, mounted twice](#bindfs) | 1.18.4, libfuse 3.18.3 | 2 |  |
-| [rclone mount, `--vfs-cache-mode writes`](#rclone) | v1.75.2 | 13 | 2 |
-| [9p: u9fs, `cache=none`](#u9fs-9p2000) | `fcec3e1` | 13, 1 optional | 4 |
-| [9p: u9fs, `cache=mmap`](#u9fs-9p2000) | `fcec3e1` | 14, 1 optional; may not finish | 1 |
-| [9p: diod, `cache=none`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 2 |
-| [9p: diod, `cache=loose`](#diod-9p2000l) | 1.1.0 | 7, 3 optional | 3 |
-| [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 1 |
-| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 | 15 | 1 |
-| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 | 15 |  |
-| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 | 15 |  |
+| Target | Version | Distinct failing checks | Reproducers | Controls |
+|---|---|---|---|---|
+| tmpfs, bind-mounted twice (control) | kernel | 0 |  |  |
+| ext4 on a loop image, bind-mounted twice | kernel | 0 |  |  |
+| XFS on a loop image, bind-mounted twice | kernel | 0 |  |  |
+| Btrfs on a loop image, bind-mounted twice | kernel | 0 |  |  |
+| overlayfs over ext4, bind-mounted twice | kernel | 0 |  |  |
+| [knfsd, NFSv3, mounted twice on one client](#knfsd) | kernel | 0, 1 optional |  | 1 |
+| [knfsd, NFSv4.2, mounted twice on one client](#knfsd) | kernel | 0, 2 optional | 1 | 1 |
+| [knfsd, NFSv4.2, two clients](#knfsd) | kernel | 0 |  | 1 |
+| [NFS-Ganesha, NFSv3, mounted twice on one client](#nfs-ganesha) | 15.8 | 0; does not finish | 1 |  |
+| [NFS-Ganesha, NFSv4.0, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |  |
+| [NFS-Ganesha, NFSv4.1, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 1 optional | 1 |  |
+| [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 2 optional | 1 | 1 |
+| [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.8 | 0, 2 optional |  | 1 |
+| [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12 | 2 |  |
+| [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4 | 1 |  |
+| [davfs2, Ubuntu's package](#davfs2-170-ubuntu-2404) | 1.7.0 (Ubuntu) | 26, 1 optional | 1 |  |
+| [sshfs, mounted twice](#sshfs) | 3.7.6, libfuse 3.18.3 | 19 |  |  |
+| [bindfs, mounted once](#bindfs) | 1.18.4, libfuse 3.18.3 | 0 |  |  |
+| [bindfs, mounted twice](#bindfs) | 1.18.4, libfuse 3.18.3 | 2 |  |  |
+| [rclone mount, `--vfs-cache-mode writes`](#rclone) | v1.75.2 | 13 | 2 |  |
+| [9p: u9fs, `cache=none`](#u9fs-9p2000) | `fcec3e1` | 13, 1 optional | 4 |  |
+| [9p: u9fs, `cache=mmap`](#u9fs-9p2000) | `fcec3e1` | 14, 1 optional; may not finish | 1 |  |
+| [9p: diod, `cache=none`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 1 | 1 |
+| [9p: diod, `cache=loose`](#diod-9p2000l) | 1.1.0 | 7, 3 optional | 2 | 1 |
+| [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 3 |  |
+| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 | 15 | 1 |  |
+| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 | 15 |  |  |
+| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 | 15 |  |  |
 <!-- /showcase-table -->
 
 Each failure below is labelled:
 
 - **Likely defect (component)**: reproduced without fshammer on the version listed, with evidence pointing at
   that component. Reproduce it on the current release before reporting.
+- **Fixed upstream**: reproduced on the version listed, which is a distribution's package, and fixed in a later
+  release of the component.
 - **Limitation**: documented, or inherent in the protocol; the source is given.
 - **Not established**: observed, with no conclusion about which component is responsible or whether it is a
   defect. The next step to find out is given where there is one.
@@ -121,7 +131,8 @@ A failure caused by another one in the same section is noted as such.
 
 The Linux kernel NFS server exporting an ext4 directory, mounted twice. In the "one client" targets both mounts
 are on this host over loopback, the second with `nosharecache`: they have separate caches but share one NFS
-client (one NFSv4 client ID and one set of delegations), so the server sees a single client. In the
+client (one set of sockets and lockd; with NFSv4, one client ID and one set of delegations), so the server
+sees a single client. In the
 "two clients" target the second mount is made from another network namespace, through a veth pair, under its
 own hostname ([`netns.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/netns.sh)), so the
 server sees two clients.
@@ -141,8 +152,10 @@ mount -t nfs -o vers=4.2,nosharecache 127.0.0.1:/ /mnt/b
   happen. That points at the client deciding the lock locally, for example under a delegation, separately for
   each of its two superblocks. Repeating the one-client case with delegations disabled on the server
   (`fs.leases-enable=0`) and with a packet capture would settle it.
-- **Limitation:** `shared.bin` sometimes loses appends made through both mounts (optional). `open(2)`
-  documents that `O_APPEND` on NFS is not atomic when more than one client appends; it is shown regardless.
+- **Limitation:** `shared.bin` sometimes loses appends made through both mounts (optional). `open(2)`:
+  "O_APPEND may lead to corrupted files on NFS filesystems if more than one process appends data to a file at
+  once. This is because NFS does not support appending to a file, so the client kernel has to simulate it,
+  which can't be done without a race condition." It is shown regardless.
 
 ## NFS-Ganesha
 
@@ -164,14 +177,15 @@ EXPORT { Export_Id = 1; Path = /srv/export; Pseudo = /export; Access_Type = RW; 
 - Unlike knfsd, a lock held through one mount excludes the same lock through the other, with one client and
   with two.
 - **Limitation:** `shared.bin` sometimes loses appends made through two clients (optional), as for knfsd.
-- **Not established (NFS-Ganesha 15.8 NFSv3 locking, or this setup):** with NFSv3 the first `fcntl` lock does
-  not return. fshammer does not finish: all four writers wait in the kernel in `nlmclnt_call`, the client's
-  NLM request, which is never answered (`hang.txt` in the job's artifact). The job stops fshammer after 10
-  minutes, and the target is recorded as not finishing.
+- **Not established, probably this setup (NFS-Ganesha 15.8, NFSv3):** the first `fcntl` lock does not return.
+  fshammer does not finish: all four writers wait in the kernel in `nlmclnt_call`, the client's NLM request,
+  which is never answered (`hang.txt` in the job's artifact); the job stops it after 10 minutes. The likely
+  cause is the setup rather than Ganesha: the kernel's own lockd and Ganesha's NLM service both register NLM
+  (RPC program 100021) with the one rpcbind on this host, so the client's NLM call can reach the kernel's
+  lockd instead of Ganesha. Check `rpcinfo -p` and run Ganesha on a host without kernel lockd before
+  reporting anything.
   [`nfs-v3-lock.sh ganesha`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/nfs-v3-lock.sh)
-  takes one lock on a file nobody else has open; with knfsd on the same host it returns at once. Whether
-  Ganesha's NLM service is registered and reachable here (`rpcinfo -p`), and a capture of the NLM traffic,
-  would tell a server defect from a setup problem.
+  takes one lock on a file nobody else has open; with knfsd on the same host it returns at once.
 - NFSv4.0 shows no failures.
 
 ## Samba
@@ -213,12 +227,15 @@ mount -t cifs //127.0.0.1/share /mnt/b -o vers=3.1.1,username=$USER,password=PAS
   (`identity/chmod_keeps_bytes_and_mtime`, `malice/mode_is_enforced`).
 - **Limitation:** an SMB lock belongs to the open handle it was taken on ([MS-SMB2], "Receiving an SMB2 LOCK
   Request"), not to a process, so closing another descriptor does not drop it (`locks/close_drops_every_lock`).
-- **Not established:** unlocking part of a locked range fails, so a range cannot be split
+- **Limitation:** an unlock must name exactly the offset and length of a held lock, or it fails with
+  STATUS_RANGE_NOT_LOCKED ([MS-FSA], "Server Requests an Unlock of a Byte-Range"), so a range cannot be split
   (`locks/unlock_splits_a_range`).
 - **Limitation:** a name cannot contain a backslash, which is SMB's path separator ([MS-FSCC] 2.1.5)
   (`namespace/hostile_names`).
-- **Not established:** a directory containing an open file cannot be renamed (EACCES) (`malice/dir_rename_open`,
-  `namespace/deep_rename_above`); directories report `st_nlink` 2 and size 0 whatever they hold
+- **Limitation:** a directory with a file open beneath it cannot be renamed (EACCES): Samba refuses it with
+  NT_STATUS_ACCESS_DENIED unless the rename is a POSIX one (`source3/smbd/smb2_reply.c`, `have_file_open_below`
+  with `strict rename`), as Windows does (`malice/dir_rename_open`, `namespace/deep_rename_above`).
+- **Not established:** directories report `st_nlink` 2 and size 0 whatever they hold
   (`inode/directory_link_count_is_usable`, `inode/directory_size_is_usable`); `shared.bin` loses appends made
   through the two sessions.
 
@@ -352,7 +369,8 @@ rclone mount /srv/remote /mnt/r --vfs-cache-mode writes --links --cache-dir /srv
 
 ## 9p
 
-The Linux 9p client over TCP, with a 1 MiB `msize`, to two servers each exporting an ext4 directory.
+The Linux 9p client over TCP to three servers, each exporting an ext4 directory. The client requests a 1 MiB
+`msize`; u9fs and diod accept it, NFS-Ganesha offers 65536.
 
 ### u9fs (9P2000)
 
@@ -375,19 +393,21 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   `v9fs_vfs_getattr` starts writeback without waiting for it and then replaces the file size with the
   server's (`v9fs_stat2inode` without `V9FS_STAT2INODE_KEEP_ISIZE`), while written pages are still on their
   way; later appends start from the smaller size.
-  [`9p-stat-during-append.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-stat-during-append.sh):
+  [`9p-stat-during-append.sh u9fs`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-stat-during-append.sh):
   in one run, 400 writes of 32 KiB, 13107200 bytes reported written, 5996544 in the file.
 - **Not established (Linux 9p client):** four processes appending to one file with `O_APPEND` on one mount,
-  with `cache=none`, lose bytes. 9P2000 has no append flag, and the client moves a descriptor to the end of
-  the file once, when it is opened (`fs/9p/vfs_file.c`), so each process writes at offsets it computed
-  itself. The Linux NFS client serialises appends from one mount; the 9p client does not.
+  with `cache=none`, lose bytes. 9P2000's open modes have no append flag (it has only the `DMAPPEND` file
+  attribute), and the client moves a descriptor to the end of the file once, when it is opened
+  (`fs/9p/vfs_file.c`), so each process writes at offsets it computed itself. The Linux NFS client serialises
+  appends from one mount; the 9p client does not.
   [`9p-append.sh u9fs none`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-append.sh).
 - **Not established (u9fs):** renaming any entry directly under the directory u9fs serves fails, and the same
   rename one level down works. u9fs answers the rename with the error string "whoops: can't happen in u9fs"
   (`u9fs.c`, wstat). fshammer works one level down and never hits this.
   [`u9fs-rename-at-root.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/u9fs-rename-at-root.sh).
-  The client has no errno for that string and returns ESERVERFAULT (526) to the program, an errno defined only
-  inside the kernel (`net/9p/error.c`).
+  The client has no errno for that string, so `net/9p/error.c` maps it to ESERVERFAULT (526), which is defined
+  in the kernel's internal `include/linux/errno.h` ("An untranslatable error occurred"), and the program sees
+  "Unknown error 526".
 - **Not established (u9fs):** `fstat()` on an open file that has been unlinked fails with ENOENT
   (`malice/unlink_open`), and so does `fsync()` on a file whose ancestor directory was renamed
   (`namespace/deep_rename_above`). u9fs answers a stat by looking up the file's path (`u9fs.c`, `fidstat`);
@@ -395,7 +415,7 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   [`9p-unlink-open.sh u9fs`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-unlink-open.sh).
 - **Not established (Linux 9p client):** a shared writable mapping is refused (EINVAL) in both cache modes
   (`sqlite/mmap_write_through`). For 9P2000 the client maps files read-only in every cache mode, while
-  `Documentation/filesystems/9p.rst` describes `cache=mmap` as providing a writeback cache for mmap.
+  `Documentation/filesystems/9p.rst` describes `cache=mmap` as "read-ahead + writeback file cache".
 - **Limitation:** 9P2000's stat has no ctime and no link count, so ctime equals mtime and directories report
   `st_nlink` 2 (`identity/ctime_is_not_just_mtime`, `inode/directory_link_count_is_usable`). u9fs reports
   directories with length 0 (`u9fs.c`, `fidstat`) (`inode/directory_size_is_usable`).
@@ -408,23 +428,6 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   not established; the next step is a capture of the 9P traffic. The job saves each process's state, kernel
   wait channel and stack to `hang.txt` in its artifact.
 
-### NFS-Ganesha (9P2000.L)
-
-NFS-Ganesha 15.8's 9P server, from the same build and configuration as above, mounted once with the same client
-options as diod.
-
-```sh
-mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER,access=user,msize=1048576,cache=loose,dfltuid=$(id -u),dfltgid=$(id -g) 127.0.0.1 /mnt/9
-```
-
-- **Not established (NFS-Ganesha 15.8's 9P server or the Linux 9p client):** creating a file fails with EFAULT
-  ("Bad address"), and afterwards listing the directory fails with EIO; as root, `mkdir` fails with EIO too.
-  Ganesha's own debug log shows it receiving the `TLCREATE` and opening the new file, so the create reaches the
-  server and the failure is in what comes back. The server offers an `msize` of 65536. A capture of the 9P
-  traffic would show whether the `RLCREATE` reply is malformed or the client misreads it. Most of fshammer's
-  checks cannot run on this mount, so its failing checks here mostly follow from this one.
-  [`ganesha-9p-create.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/ganesha-9p-create.sh).
-
 ### diod (9P2000.L)
 
 diod 1.1.0, built from its release.
@@ -435,15 +438,20 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
 ```
 
 - **Likely defect (diod 1.1.0):** after a file held open is renamed, the server keeps answering for its old
-  path. With `cache=none`, `fstat()` on the open descriptor fails with ENOENT (`malice/rename_live`), and in
-  fshammer's log-rotation check, writes made through the descriptor after the rotation are missing from the
-  renamed file (`malice/log_rotation`); with `cache=loose`, reading the renamed file fails with ENODATA
-  (`malice/rename_recreate`, `malice/log_rotation`, `inode/three_rename_swap`). diod 1.1.0 implements Trenameat (its NEWS: "Implement
-  Trenameat and Tunlinkat"), and `diod_renameat` (`src/libdiod/diod_ops.c`) renames on disk without updating
-  the path of any fid that refers to the file, where `diod_rename` (Trename) updates `f->path`. A fid that is
-  not open answers getattr with `lstat()` of that path. diod 1.0.24 has no Trenameat, so the client falls back
-  to Trename, and the same steps work there.
-  [`9p-rename-open.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-rename-open.sh):
+  path. What fshammer reports:
+  - `malice/rename_live` (`cache=none` and `cache=mmap`): `fstat()` on the open descriptor fails with ENOENT;
+  - `malice/log_rotation`: with `cache=none` and `cache=mmap`, writes made through the descriptor after the
+    rotation are missing from the renamed file; with `cache=loose`, reading the renamed file fails with
+    ENODATA;
+  - `malice/rename_recreate` (`cache=loose`): "the renamed file did not receive its own handle's writes";
+  - `inode/three_rename_swap` (`cache=loose`): "the swap moved the names and left the bytes behind".
+
+  diod 1.1.0 implements Trenameat (its NEWS: "Implement Trenameat and Tunlinkat"), and `diod_renameat`
+  (`src/libdiod/diod_ops.c`) renames on disk without updating the path of any fid that refers to the file,
+  where `diod_rename` (Trename) updates `f->path`. A fid that is not open answers getattr with `lstat()` of
+  that path. diod 1.0.24 has no Trenameat, so the client falls back to Trename, and the same steps work there.
+  [`9p-rename-open.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-rename-open.sh)
+  (run for `none`, `loose` and `mmap`, and against diod 1.0.24 as a control):
 
   ```python
   fd = os.open("/mnt/9/service.log", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
@@ -452,18 +460,38 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
   os.fstat(fd)                      # cache=none: FileNotFoundError, [Errno 2]
   ```
 
-
 - **Not established (the Linux 9p client's 9P2000.L path, or diod 1.1.0; `cache=loose` and `cache=mmap`):**
   four processes appending to one file with `O_APPEND` on one mount lose bytes `write()` reported
   (`shared.bin`). With a page cache the client chooses the offsets it writes at, and with `cache=none` diod
   receives the same appends and nothing is lost, which points at the client; it has not been compared with
   another 9P2000.L server, so diod is not ruled out.
   [`9p-append.sh diod loose`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-append.sh).
-  With `cache=mmap`, `observed.log` also loses or tears blocks in some runs while other processes call
-  `stat()` on it (optional); `v9fs_vfs_getattr_dotl` has the same sequence as the 9P2000 path described for
-  u9fs above.
+- **Likely defect (Linux 9p client, `cache=mmap`):** a file appended to while another process calls `stat()`
+  on it loses or tears blocks (`observed.log`, in some runs). `v9fs_vfs_getattr_dotl` has the same sequence as
+  the 9P2000 path described for u9fs above.
+  [`9p-stat-during-append.sh diod`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-stat-during-append.sh).
 - **Limitation:** diod implements POSIX locks with whole-file `flock()` (`diod_ops.c`: "Implement POSIX locks
   in terms of BSD flock locks"), so byte ranges, shared locks and `F_GETLK` do not behave as POSIX describes
   (`locks/*`). Which of the lock checks fail varies between runs.
 - **Limitation (`cache=none`):** a shared writable mapping is refused (`sqlite/mmap_write_through`);
-  `Documentation/filesystems/9p.rst` documents that `cache=none` disables mmap.
+  `Documentation/filesystems/9p.rst` gives `cache=none` as "all caches disabled, mmap disabled".
+
+### NFS-Ganesha (9P2000.L)
+
+NFS-Ganesha 15.8's 9P server, from the same build and configuration as above, mounted once with the same client
+options as diod.
+
+```sh
+mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER,access=user,msize=1048576,cache=loose,dfltuid=$(id -u),dfltgid=$(id -g) 127.0.0.1 /mnt/9
+```
+
+- **Not established (NFS-Ganesha 15.8's 9P server or the Linux 9p client):** data written through the mount
+  cannot be written back or read back. In fshammer every write descriptor's `fsync()` or `close()` fails with
+  EIO ("writes were still not on the filesystem at close"), and reading the written files back fails with EIO
+  ("own file could not be read back"), so the other phases have nothing to work on; every failing check here
+  follows from this. In the reproducer, which creates one file with `open()`, the create itself fails with
+  EFAULT ("Bad address") and listing the directory then fails with EIO; as root, `mkdir` fails with EIO too.
+  Ganesha's debug log shows it receiving the `TLCREATE` and opening the new file, so the request reaches the
+  server and the failure is in what comes back. The server offers an `msize` of 65536. A capture of the 9P
+  traffic would show whether its replies are malformed or the client misreads them.
+  [`ganesha-9p-create.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/ganesha-9p-create.sh).

@@ -99,3 +99,20 @@ def test_a_directory_that_cannot_be_created_is_a_fail_not_a_traceback(tmp_path):
     assert proc.returncode == 1, proc.stderr[-1000:]
     assert "FAIL setup:" in proc.stderr
     assert "Traceback" not in proc.stderr
+
+
+def test_an_internal_error_exits_3_and_an_interrupt_130(monkeypatch, capsys):
+    """Neither may read as a verdict on the filesystem, which exits 0 or 1."""
+    from conftest import fshammer
+
+    def broken():
+        raise RuntimeError("a fault inside fshammer")
+
+    def interrupted():
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(fshammer, "hammer", broken)
+    assert fshammer.main() == 3
+    assert "internal error" in capsys.readouterr().err
+    monkeypatch.setattr(fshammer, "hammer", interrupted)
+    assert fshammer.main() == 130

@@ -16,12 +16,11 @@ layers, overlay and encrypting filesystems.
   `DECLARED GAP` line with the reason.
 - One Python file, standard library only, Python 3.12+. Linux and macOS.
 
-> [!WARNING]
-> fshammer writes a lot of data: up to about 1.5 GB at once with the defaults, plus 4 GiB on a filesystem
-> without sparse files. If the filesystem has less than 2 GiB free, it also keeps writing until writes are
-> refused, on purpose, to test what happens when it runs out of space.
-> While it is full, every other program writing to that filesystem gets "No space left on device".
-> Don't point it at a filesystem your system or other users depend on. See [Disk usage](https://github.com/PacAnimal/fshammer#disk-usage).
+**Warning:** fshammer writes a lot of data: up to about 1.5 GB at once with the defaults, plus 4 GiB on a
+filesystem without sparse files. If the filesystem has less than 2 GiB free, it also keeps writing until writes
+are refused, on purpose, to test what happens when it runs out of space. While it is full, every other program
+writing to that filesystem gets "No space left on device". Don't point it at a filesystem your system or other
+users depend on. See [Disk usage](https://github.com/PacAnimal/fshammer#disk-usage).
 
 ## Quick start
 
@@ -33,13 +32,14 @@ python3 fshammer.py --dir /mnt/under-test/fshammer --duration 0
 `--duration 0` attempts every variant once and stops, which takes seconds to minutes. The default is a
 300-second run.
 
-To install it as a command, from PyPI once it is published there, or from GitHub until then:
+To install it as a command:
 
 ```sh
 pipx install fshammer
-pipx install git+https://github.com/PacAnimal/fshammer
 fshammer --dir /mnt/under-test/fshammer
 ```
+
+To install the current development version from GitHub instead: `pipx install git+https://github.com/PacAnimal/fshammer`.
 
 `--dir` must be empty or not exist (`lost+found` is ignored). After a run with no failures, everything in it
 except `lost+found` is deleted, including anything another process put there during the run; `--keep`
@@ -78,6 +78,8 @@ that wrote it, and whether the bytes were still wrong after the page cache was d
 | `0` | no `FAIL` lines. Each `DECLARED GAP` line is something the run did not test |
 | `1` | at least one `FAIL` line on stderr, or every writer died without reporting |
 | `2` | invalid invocation: bad arguments, a non-empty `--dir`, or an `--alt-dir` that is not the same directory |
+| `3` | an error inside fshammer itself; a traceback is printed. Not a verdict on the filesystem |
+| `130` | interrupted with Ctrl-C; the files are left in `--dir` |
 
 ## Phases
 
@@ -134,9 +136,9 @@ python3 fshammer.py --dir /mnt/scratch/fsh --duration 0
 
 An NFS export mounted twice, with the server's directory readable from the client, for an hour.
 `nosharecache` gives the second mount its own data and attribute caches; without it, both paths share one
-cache and the same `st_dev`, which fshammer reports as a gap. Either way both mounts share one NFS client
-(one NFSv4 client ID and set of delegations), so the server sees one client. A two-client test needs a
-second machine or network namespace:
+cache and the same `st_dev`, which fshammer reports as a gap. Either way both mounts share one NFS client (one
+set of sockets and lockd; with NFSv4, one client ID and set of delegations), so the server sees one client. A
+two-client test needs a second machine or network namespace:
 
 ```sh
 mount -t nfs -o vers=3 server:/export /mnt/a
@@ -219,47 +221,54 @@ gap.
 
 fshammer against filesystems set up on a GitHub runner, re-run weekly and when fshammer or the showcase
 changes. Where it was practical the software is built from its latest release. Each badge describes the latest
-complete run: green `no failures`; yellow `N failing checks (documented)` when every failing check is a
-documented limitation; orange `N failing checks` when any is a likely defect or not yet explained; red when the
-outcome differs from the record or the run did not complete. `N` counts distinct failing checks. What each
-failure is, which component it points at, and a standalone reproducer for each likely defect, are in
+complete run:
+
+- green `no failures`: fshammer exited 0 and printed no `FAIL` line;
+- yellow `N failing checks (documented)`: every failing check is a documented limitation;
+- orange `N failing checks`: at least one failing check is a likely defect, not yet explained, or follows from
+  another failure; orange `does not finish`: fshammer is recorded as not finishing on this target;
+- red `changed`, `reproducer changed` or `setup failed`: the run differs from the record (including a hang that
+  was not recorded), a reproducer's outcome changed, or the target could not be set up.
+
+`N` counts distinct failing checks. What each failure is, which component it points at, and a standalone
+reproducer for each likely defect and for some of the other findings, are in
 [showcase/README.md](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md).
 
-Green means one pass (`--duration 0`) found nothing, on one host over loopback, with a second mount that is the
-same client or a bind mount, and without filling the filesystem or testing a crash. It is not a
-certification.
+Green means one pass (`--duration 0`) found nothing, on one host, with at most a second mount on that host
+(the same client, a bind mount, or a client in a separate network namespace), and without filling the
+filesystem or testing a crash. It is not a certification.
 
 <!-- showcase-table -->
 | Target | Status | Failing checks |
 |---|---|---|
-| tmpfs, mounted twice (control) | [![tmpfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/tmpfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
+| tmpfs, bind-mounted twice (control) | [![tmpfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/tmpfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
 | ext4 on a loop image, bind-mounted twice | [![ext4](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ext4.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
 | XFS on a loop image, bind-mounted twice | [![xfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/xfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
 | Btrfs on a loop image, bind-mounted twice | [![btrfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/btrfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
-| overlayfs over ext4, mounted twice | [![overlayfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/overlayfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
+| overlayfs over ext4, bind-mounted twice | [![overlayfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/overlayfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
 | [knfsd, NFSv3, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#knfsd) | [![knfsd-v3](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v3.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | documented: 1 check, in some runs. |
 | [knfsd, NFSv4.2, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#knfsd) | [![knfsd-v4.2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v4.2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 1 check, in some runs; documented: 1 check, in some runs. |
 | [knfsd, NFSv4.2, two clients](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#knfsd) | [![knfsd-v4.2-2client](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v4.2-2client.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
-| [NFS-Ganesha, NFSv3, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v3](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v3.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
+| [NFS-Ganesha, NFSv3, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v3](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v3.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: the first NFSv3 lock never returns. |
 | [NFS-Ganesha, NFSv4.0, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v4.0](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.0.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
 | [NFS-Ganesha, NFSv4.1, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v4.1](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.1.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 1 check, in some runs. |
 | [NFS-Ganesha, NFSv4.2, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v4.2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 1 check, in some runs; documented: 1 check, in some runs. |
 | [NFS-Ganesha, NFSv4.2, two clients](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v4.2-2client](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.2-2client.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 1 check, in some runs; documented: 1 check, in some runs. |
-| [Samba, Linux SMB3 client, mounted twice](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#samba) | [![samba](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/samba.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 8 checks; documented: 4 checks. |
+| [Samba, Linux SMB3 client, mounted twice](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#samba) | [![samba](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/samba.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 5 checks; documented: 7 checks. |
 | [davfs2 over Apache mod_dav](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#davfs2) | [![davfs2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/davfs2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 1 check (`identity/utimes_survives_the_flush`); not established: 3 checks. |
-| [davfs2, Ubuntu's package](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#davfs2-170-ubuntu-2404) | [![davfs2-ubuntu](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/davfs2-ubuntu.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 1 check (`identity/utimes_survives_the_flush`); follows from another failure: 22 checks (+1 in some runs); not established: 3 checks. |
+| [davfs2, Ubuntu's package](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#davfs2-170-ubuntu-2404) | [![davfs2-ubuntu](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/davfs2-ubuntu.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: every directory listing fails with EINVAL (fixed upstream in 1.7.2); likely defect: 1 check (`identity/utimes_survives_the_flush`); following from it: 22 checks (+1 in some runs); not established: 3 checks. |
 | [sshfs, mounted twice](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#sshfs) | [![sshfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/sshfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 3 checks; documented: 16 checks. |
 | [bindfs, mounted once](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#bindfs) | [![bindfs-single](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/bindfs-single.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | None in the recorded runs. |
 | [bindfs, mounted twice](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#bindfs) | [![bindfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/bindfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 1 check; documented: 1 check. |
 | [rclone mount, `--vfs-cache-mode writes`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#rclone) | [![rclone](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/rclone.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 2 checks (`identity/truncate_grow_reads_zeros`, `malice/rename_over_open`); not established: 8 checks; documented: 3 checks. |
 | [9p: u9fs, `cache=none`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#u9fs-9p2000) | [![u9fs-none](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/u9fs-none.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 6 checks; not established: 3 checks (+1 in some runs); documented: 4 checks. |
-| [9p: u9fs, `cache=mmap`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#u9fs-9p2000) | [![u9fs-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/u9fs-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 7 checks (+1 in some runs); not established: 3 checks; documented: 4 checks. |
+| [9p: u9fs, `cache=mmap`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#u9fs-9p2000) | [![u9fs-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/u9fs-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 7 checks (+1 in some runs); not established: 3 checks; documented: 4 checks; may not finish. |
 | [9p: diod, `cache=none`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#diod-9p2000l) | [![diod-none](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-none.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 2 checks (`malice/log_rotation`, `malice/rename_live`); documented: 4 checks (+3 in some runs). |
 | [9p: diod, `cache=loose`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#diod-9p2000l) | [![diod-loose](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-loose.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 3 checks (`inode/three_rename_swap`, `malice/log_rotation`, `malice/rename_recreate`); not established: 1 check; documented: 3 checks (+3 in some runs). |
 | [9p: diod, `cache=mmap`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#diod-9p2000l) | [![diod-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect: 2 checks (+1 in some runs) (`malice/log_rotation`, `malice/rename_live`, `observed.log`); not established: 1 check; documented: 3 checks (+2 in some runs). |
-| [9p: NFS-Ganesha, `cache=none`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha-9p2000l) | [![ganesha-9p-none](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-9p-none.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | follows from another failure: 15 checks. |
-| [9p: NFS-Ganesha, `cache=loose`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha-9p2000l) | [![ganesha-9p-loose](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-9p-loose.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | follows from another failure: 15 checks. |
-| [9p: NFS-Ganesha, `cache=mmap`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha-9p2000l) | [![ganesha-9p-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-9p-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | follows from another failure: 15 checks. |
+| [9p: NFS-Ganesha, `cache=none`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha-9p2000l) | [![ganesha-9p-none](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-9p-none.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: written data cannot be read back (EIO); following from it: 15 checks. |
+| [9p: NFS-Ganesha, `cache=loose`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha-9p2000l) | [![ganesha-9p-loose](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-9p-loose.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: written data cannot be read back (EIO); following from it: 15 checks. |
+| [9p: NFS-Ganesha, `cache=mmap`](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha-9p2000l) | [![ganesha-9p-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-9p-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: written data cannot be read back (EIO); following from it: 15 checks. |
 <!-- /showcase-table -->
 
 ## Related tools
@@ -291,6 +300,12 @@ copy of fshammer that answers a race wrongly, and require each to fail.
 
 CI runs the unit tests on Linux and macOS with Python 3.12, 3.13 and 3.14, and the reference-filesystem
 tests on Linux, on pushes to `main` and on pull requests.
+
+To release version X.Y.Z: set `__version__` in `fshammer.py` and date its entry in `CHANGELOG.md`, point the
+Quick start `curl` URL at the tag (`.../fshammer/vX.Y.Z/fshammer.py`), commit, and push the tag `vX.Y.Z`. The
+[release workflow](https://github.com/PacAnimal/fshammer/blob/main/.github/workflows/release.yml) builds and
+checks the package and publishes it to PyPI by trusted publishing, from the `pypi` environment; PyPI needs a
+(pending) trusted publisher for `PacAnimal/fshammer`, workflow `release.yml`, environment `pypi`.
 
 ## License
 

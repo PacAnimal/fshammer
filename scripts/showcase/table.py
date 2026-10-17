@@ -28,8 +28,8 @@ def targets() -> list[dict]:
     for line in (HERE / "targets.txt").read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
-        tid, name, version, section = (part.strip() for part in line.split("|"))
-        rows.append({"id": tid, "name": name, "version": version, "section": section})
+        tid, name, version, section, root = (part.strip() for part in line.split("|"))
+        rows.append({"id": tid, "name": name, "version": version, "section": section, "root": root})
     return rows
 
 
@@ -38,12 +38,26 @@ def checks(tid: str) -> tuple[set[str], set[str], dict[str, str]]:
     return {s for s in required if s != "TIMEOUT"}, {s for s in allowed if s != "TIMEOUT"}, tags
 
 
-def what_fails(tid: str) -> str:
-    """Failing checks per class, e.g. "likely defect: 2 checks (`a`, `b`); documented: 3 checks"."""
+def finishing(tid: str) -> str:
+    """Whether the recorded runs finished: "" for always, else how it is recorded."""
+    required, allowed, _ = expect.load(HERE / "expected" / f"{tid}.txt")
+    if "TIMEOUT" in required:
+        return "does not finish"
+    if "TIMEOUT" in allowed:
+        return "may not finish"
+    return ""
+
+
+def what_fails(t: dict) -> str:
+    """The root failure when there is one, then failing checks per class, e.g. "likely defect: 2 checks (`a`, `b`)"."""
+    tid = t["id"]
     required, allowed, tags = checks(tid)
-    if not required and not allowed:
-        return "None in the recorded runs."
     parts = []
+    finish = finishing(tid)
+    if t["root"]:
+        parts.append(f"not established: {t['root']}")
+    elif finish == "does not finish":
+        parts.append("not established: fshammer does not finish")
     for tag, label in CLASS_NAMES:
         always = sorted(s for s in required if tags[s] == tag)
         sometimes = sorted(s for s in allowed if tags[s] == tag)
@@ -56,10 +70,16 @@ def what_fails(tid: str) -> str:
         else:
             text = f"{label}: {len(always)} {'check' if len(always) == 1 else 'checks'}"
             text += f" (+{len(sometimes)} in some runs)" if sometimes else ""
+        if tag == "follows" and t["root"]:
+            text = text.replace(label, "following from it", 1)
         # named when few enough to read; the section of showcase/README.md has the rest
         if tag == "defect" and n <= 4:
             text += " (" + ", ".join(f"`{s[len('FAIL '):-1]}`" for s in always + sometimes) + ")"
         parts.append(text)
+    if finish == "may not finish":
+        parts.append("may not finish")
+    if not parts:
+        return "None in the recorded runs."
     return "; ".join(parts) + "."
 
 
@@ -68,22 +88,23 @@ def readme_table() -> str:
     for t in targets():
         name = f"[{t['name']}]({PAGE}#{t['section']})" if t["section"] else t["name"]
         badge = f"[![{t['id']}]({BADGE.format(t['id'])})]({WORKFLOW})"
-        lines.append(f"| {name} | {badge} | {what_fails(t['id'])} |")
+        lines.append(f"| {name} | {badge} | {what_fails(t)} |")
     return "\n".join(lines)
 
 
 def showcase_table() -> str:
-    count = {}
+    reproduced, controls = {}, {}
     for entry in repros.entries():
-        count[entry["target"]] = count.get(entry["target"], 0) + 1
-    lines = ["| Target | Version | Distinct failing checks | Reproducers |", "|---|---|---|---|"]
+        kind = reproduced if entry["expect"] == "reproduced" else controls
+        kind[entry["target"]] = kind.get(entry["target"], 0) + 1
+    lines = ["| Target | Version | Distinct failing checks | Reproducers | Controls |", "|---|---|---|---|---|"]
     for t in targets():
         required, allowed, _ = checks(t["id"])
         cell = f"{len(required)}" + (f", {len(allowed)} optional" if allowed else "")
-        if "TIMEOUT" in checks_raw(t["id"]):
-            cell += "; may not finish"
+        if finishing(t["id"]):
+            cell += f"; {finishing(t['id'])}"
         name = f"[{t['name']}](#{t['section']})" if t["section"] else t["name"]
-        lines.append(f"| {name} | {t['version']} | {cell} | {count.get(t['id'], '')} |")
+        lines.append(f"| {name} | {t['version']} | {cell} | {reproduced.get(t['id'], '')} | {controls.get(t['id'], '')} |")
     return "\n".join(lines)
 
 
@@ -111,6 +132,12 @@ def main() -> int:
     missing = sorted({t["section"] for t in targets() if t["section"] and t["section"] not in headings})
     if missing:
         print(f"targets.txt names sections showcase/README.md does not have: {', '.join(missing)}")
+        return 1
+    # a likely defect is only called one with a reproducer behind it
+    with_repro = {e["target"] for e in repros.entries() if e["expect"] == "reproduced"}
+    unbacked = sorted(t["id"] for t in targets() if "defect" in checks(t["id"])[2].values() and t["id"] not in with_repro)
+    if unbacked:
+        print(f"targets with a [defect] check and no reproducer in repros.txt: {', '.join(unbacked)}")
         return 1
     listed = {t["id"] for t in targets()}
     files = {p.stem for p in (HERE / "expected").glob("*.txt")}

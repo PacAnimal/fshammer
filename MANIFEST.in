@@ -1,2 +1,4 @@
 include CHANGELOG.md
 recursive-include tests *.py
+# the self-tests need it to build their reference filesystems
+include scripts/reference-fs.sh

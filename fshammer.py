@@ -11,7 +11,7 @@ observer, shared. See https://github.com/PacAnimal/fshammer for what each checks
 # lets signatures name types defined further down, on every supported Python
 from __future__ import annotations
 
-__version__ = "1.0.0"
+__version__ = "0.9.0"
 
 import argparse, binascii, errno, hashlib, mmap, os, queue, random, shutil, stat, struct, subprocess, sys, time, traceback
 from dataclasses import dataclass, field
@@ -1993,8 +1993,7 @@ def hammer_namespace(directory: str, writer: int, deadline: float,
                 if got != value:
                     raise AssertionError(
                         f"{f}: setxattr({key!r}) was ACCEPTED and getxattr returns {got!r} rather than "
-                        f"{value!r} — an attribute that comes back changed is metadata silently corrupted, "
-                        f"and every backup that copies it will copy the wrong thing")
+                        f"{value!r}")
 
                 if key not in xattr_list(f):
                     raise AssertionError(
@@ -3223,8 +3222,7 @@ def hammer_malice(directory: str, writer: int, deadline: float,
                 else:
                     os.close(fd)
                     raise AssertionError(
-                        f"{f}: opened for writing at mode 0400 — the mode is recorded and not enforced, so "
-                        f"every tool that shows this file as protected is wrong about it")
+                        f"{f}: opened for writing at mode 0400: the mode is recorded and not enforced")
 
                 if contents(f) != body:
                     raise AssertionError(f"{f}: mode 0400 is read-only, and it does not read")
@@ -3243,8 +3241,7 @@ def hammer_malice(directory: str, writer: int, deadline: float,
                 allowed(os.chmod, f, 0o644)
                 if contents(f) != body:
                     raise AssertionError(
-                        f"{f}: restored to 0644 and the bytes are gone — the permission round trip cost the "
-                        f"file, which is the one outcome worse than not enforcing modes at all")
+                        f"{f}: restored to 0644 and the content no longer reads back")
                 os.unlink(f)
 
             elif variant == "log_rotation":
@@ -3468,8 +3465,7 @@ def hammer_inode(directory: str, writer: int, deadline: float,
                 if after[moved].ino != before[name].ino:
                     raise AssertionError(
                         f"{root}/{moved}: inode {after[moved].ino} where {before[name].ino} moved in from "
-                        f"{name} — the rename made a NEW object, so every backup re-reads the tree and a "
-                        f"move-detecting one loses the link")
+                        f"{name}: the rename gave the file a new inode number")
                 if after[moved].digest != before[name].digest:
                     raise AssertionError(f"{root}/{moved}: same object after the move, different bytes")
 
@@ -3718,7 +3714,7 @@ def hammer_publish(directory: str, writer: int, deadline: float,
     With --server-root the published generation is also read directly from the server's directory.
     """
     shapes = ["publish_rename", "publish_link", "publish_sidecar_first", "publish_boundary_manifest"]
-    # following another writer needs another writer; main() reports the gap at --procs 1
+    # following another writer needs another writer; hammer() reports the gap at --procs 1
     if procs > 1:
         shapes.append("follow_other_writers")
     result = PhaseResult.over(shapes)
@@ -4610,9 +4606,7 @@ def hammer_locks(directory: str, writer: int, deadline: float, rng: random.Rando
                 if not excluded:
                     raise AssertionError(
                         f"a lock held on {theirs} through the second mount was granted AGAIN on {arena} "
-                        f"through the first. One export mounted twice is one set of files, so two writers "
-                        f"now both believe they hold it — which is how a database or a lockfile reached by "
-                        f"two paths gets destroyed. Neither the server nor the client is arbitrating; on "
+                        f"through the first, so two processes hold the same exclusive lock on one file. On "
                         f"Linux, check whether these mounts were given `nosharecache`")
 
             result.done[variant] += 1
@@ -4820,7 +4814,7 @@ def verify_shared(path: str, expected: dict[BlockId, int]) -> list[str]:
 
 
 # passed to workers through the environment: on macOS they are spawned, re-import this module, and would
-# never see globals set in main()
+# never see globals set in hammer()
 _MOUNT_ROOT = os.environ.get("FSHAMMER_MOUNT_ROOT") or None
 _ALT_ROOT = os.environ.get("FSHAMMER_ALT_ROOT") or None
 _SERVER_ROOT = os.environ.get("FSHAMMER_SERVER_ROOT") or None
@@ -4828,7 +4822,7 @@ _SINGLE_WRITER_HANDLE = os.environ.get("FSHAMMER_ONE_WRITE_HANDLE") == "1"
 _NO_MAP = os.environ.get("FSHAMMER_NO_MAP") == "1"
 _NO_LOCK = os.environ.get("FSHAMMER_NO_LOCK") == "1"
 # `phase` or `phase/variant` names from --declare-gap; through the environment like the flags above, and
-# also assigned in main() because the parent's verdict needs them
+# also assigned in hammer() because the parent's verdict needs them
 _DECLARED_GAPS = frozenset(g for g in os.environ.get("FSHAMMER_DECLARED_GAPS", "").split(",") if g)
 
 
@@ -4958,18 +4952,16 @@ def run_enospc(d: str, result: PhaseResult, variant: str) -> None:
             if hit not in (errno.ENOSPC, errno.EDQUOT):
                 raise AssertionError(
                     f"{filler}: the filesystem stopped accepting writes with "
-                    f"{errno.errorcode.get(hit, hit)} rather than ENOSPC — a caller cannot tell "
-                    f"a full disk from a broken one, and every retry loop in the world keys on "
-                    f"that errno")
+                    f"{errno.errorcode.get(hit, hit)} rather than ENOSPC or EDQUOT, the errors a "
+                    f"caller can recognise as a full filesystem")
 
             # everything write(2) accepted must be in the file
             landed = os.stat(filler).st_size
             if landed != accepted:
                 raise AssertionError(
                     f"{filler}: {accepted} bytes were accepted by write(2) and the file is "
-                    f"{landed} ({landed - accepted:+d}). A full disk that TRUNCATES what it "
-                    f"already took is the worst of both answers — the caller was told those "
-                    f"bytes landed")
+                    f"{landed} ({landed - accepted:+d}): bytes write(2) reported as written are "
+                    f"not in the file")
 
             if contents(canary) != canary_body:
                 raise AssertionError(
@@ -5019,13 +5011,28 @@ def remove_tree(path: str) -> None:
 
 
 def main() -> int:
+    """Exit 0, 1 or 2 as --help describes; 130 when interrupted; 3 for an error inside fshammer itself."""
+    try:
+        return hammer()
+    except KeyboardInterrupt:
+        print("fshammer: interrupted; any files it created are left in --dir", file=sys.stderr)
+        return 130
+    except Exception:                                     # noqa: BLE001 — reported, with a distinct exit code
+        traceback.print_exc()
+        print("fshammer: internal error (exit 3); this is a fault in fshammer, not a FAIL", file=sys.stderr)
+        return 3
+
+
+def hammer() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit 0 = no FAIL lines. Each DECLARED GAP line on stderr is something the run did not test.\n"
                "exit 1 = at least one FAIL line on stderr, or every writer died without reporting.\n"
                "exit 2 = invalid invocation: bad arguments, a non-empty --dir, or an --alt-dir that is not\n"
-               "the same directory as --dir.\n\n"
+               "the same directory as --dir.\n"
+               "exit 3 = an error inside fshammer itself (a traceback is printed); not a verdict on the filesystem.\n"
+               "exit 130 = interrupted (Ctrl-C); the files are left in --dir.\n\n"
                "Disk use: about 1.5 GB at once with the defaults (plus 4 GiB on a filesystem without sparse\n"
                "files and at least 5 GiB free). If less than --fill-budget is free, it writes until writes are\n"
                "refused, and other programs on that filesystem get 'No space left on device' until it deletes\n"
@@ -5053,7 +5060,7 @@ def main() -> int:
                     help="the same directory through a second mount. Odd-numbered writers append to shared.bin "
                          "and watch observed.log through it, and the cross-mount lock and publish checks use it. "
                          "Two NFS mounts of one server share one NFS client even with nosharecache, so the "
-                         "server sees a single client.")
+                         "server sees a single client. Needs --procs 2 or more.")
     # reads the server's own copy, around the client cache. Only valid for a store that applies a write
     # before acknowledging it: the publish phase reads here right after its rename, which a correct
     # write-behind store will not have applied yet.
@@ -5313,21 +5320,20 @@ def main() -> int:
               f"refused rather than trimmed — but NAME_MAX itself went untested, and a store that fails "
               f"only in the last few bytes of a name would not be caught by this run.", file=sys.stderr)
         if cap_was_unnecessary:
-            print(f"  DECLARED GAP CLOSED: and the cap was not needed. A {NAME_MAX}-byte name round-tripped "
-                  f"here before the workload started, so --max-name-length {MAX_NAME_LENGTH} is costing the "
-                  f"coverage above for nothing — drop it from this invocation.", file=sys.stderr)
+            print(f"  DECLARED GAP CLOSED: a {NAME_MAX}-byte name round-tripped here before the workload "
+                  f"started, so --max-name-length {MAX_NAME_LENGTH} is not needed on this filesystem.",
+                  file=sys.stderr)
         else:
-            print(f"  ...and the cap is EARNED: this run probed a {NAME_MAX}-byte name before starting and "
-                  f"the filesystem would not hold it.", file=sys.stderr)
+            print(f"  (a {NAME_MAX}-byte name was probed before the run and refused, so the cap is needed)",
+                  file=sys.stderr)
     if _NO_MAP:
-        print("  DECLARED GAP: --no-map, so nothing here mapped a file. Mapping is how a database reads and "
-              "how a page reaches a server with nobody calling write(2); this run did not test any of it.",
+        print("  DECLARED GAP: --no-map, so no file was memory-mapped and mmap reads and writes were not "
+              "tested.",
               file=sys.stderr)
     if not CAN_DROP_CACHE:
         print("  DECLARED GAP: this platform has no posix_fadvise, so no verification read could be forced "
-              "past the client's page cache. Every read-back in this run — including the final SHA-256 of "
-              "each own-file, which is the headline oracle — may have been answered out of the pages the "
-              "writer had just filled, and would agree with itself whatever the server actually stored.",
+              "past the client's page cache. Every read-back in this run, including the final SHA-256 of "
+              "each own-file, may have been answered from the client's cache rather than from the server.",
               file=sys.stderr)
     if args.procs < 2:
         print("  DECLARED GAP: --procs 1, so no writer ever followed another writer's published pointer, "
@@ -5338,15 +5344,13 @@ def main() -> int:
               "and positional kinds used pwrite at end-of-file instead of O_APPEND. Several descriptors "
               "writing one file were not tested.", file=sys.stderr)
     if _NO_LOCK:
-        print("  DECLARED GAP: --no-lock, so not one fcntl advisory lock was taken in this run. Locking is "
-              "the only contract here whose whole value is the REFUSAL — a store that grants every request "
-              "passes every other oracle in this tool — and none of it was tested.", file=sys.stderr)
+        print("  DECLARED GAP: --no-lock, so no fcntl lock was taken and locking was not tested.",
+              file=sys.stderr)
     elif fcntl is None or not FLOCK:
-        print(f"  DECLARED GAP: no usable struct flock on {sys.platform}, so the locking phase did not run. "
-              f"Guessing the layout would risk reporting a failure that belongs to this tool.", file=sys.stderr)
+        print(f"  DECLARED GAP: no known struct flock layout for {sys.platform}, so the locking phase did "
+              f"not run.", file=sys.stderr)
     elif not lock_increments:
-        print("  FAIL locks/exclusive_rmw: no writer completed a single locked increment, so the phase "
-              "that proves this filesystem arbitrates at all did not run", file=sys.stderr)
+        print("  FAIL locks/exclusive_rmw: no writer completed a single locked increment", file=sys.stderr)
         failures += 1
     else:
         # every increment was made under an exclusive lock, so the total is exact; short means two writers
@@ -5367,12 +5371,9 @@ def main() -> int:
                   f"holds exactly that")
     options = mount_options(args.dir)
     if not _NO_LOCK and ("nolock" in options or "local_lock=all" in options):
-        print(f"  DECLARED GAP: this mount carries nolock, so every fcntl lock in this run — the locking "
-              f"phase's, and the ones a SQLite-shaped commit implies — was arbitrated by the CLIENT and the "
-              f"server never saw one. Processes on THIS machine still exclude each other correctly, which "
-              f"is what the locking phase above just proved and is enough for every user of one machine. "
-              f"What went untested is two CLIENTS, where the server is the only thing that could arbitrate "
-              f"and a server without a lock manager cannot. ({options})", file=sys.stderr)
+        print(f"  DECLARED GAP: this mount carries nolock, so every fcntl lock in this run was decided by "
+              f"the client and the server never saw one. Locking between processes on this machine was "
+              f"tested; locking between two clients was not. ({options})", file=sys.stderr)
     if args.alt_dir and os.stat(args.dir).st_dev == os.stat(args.alt_dir).st_dev:
         print("  DECLARED GAP: --dir and --alt-dir report the same st_dev, so they are probably one client "
               "instance (a bind mount, or NFS without nosharecache). The cross-mount checks then ran "
@@ -5383,10 +5384,8 @@ def main() -> int:
               "of the ordering oracles did not run.", file=sys.stderr)
     # always printed: a syscall cannot say how its answer was produced
     print("  DECLARED GAP: nothing here can tell an answer served from an INDEX from one the server "
-          "rescanned to produce. Both return the same bytes, and the only difference is how long they took "
-          "— which to a syscall is a slow filesystem, and there is no oracle for slow in this tool. So a "
-          "change that leaves every answer correct and makes each one O(N) passes this suite green. If that "
-          "is the property under test, it needs measuring where the work happens, not here.", file=sys.stderr)
+          "rescanned to produce: both return the same bytes, at different speeds, and fshammer checks "
+          "results, not speed.", file=sys.stderr)
     for phase in VARIANT_PHASES:
         failures += report_phase(phase, totals[phase.key])
 
@@ -5417,8 +5416,8 @@ def main() -> int:
     shared_path = os.path.join(args.dir, SHARED)
     if declared_gap("shared"):
         # without this, "0 blocks from 0 writers" would read like a clean run
-        print("  DECLARED GAP shared: many writers appending to ONE file was declared absent, so the "
-              "shape most likely to lose appended data is untested here", file=sys.stderr)
+        print("  DECLARED GAP shared: many writers appending to one file was declared absent, so concurrent "
+              "appends were not tested", file=sys.stderr)
     else:
         problems = verify_shared(shared_path, shared_expected)
         acked = sum(HEADER.size + n for n in shared_expected.values())
@@ -5434,8 +5433,8 @@ def main() -> int:
             # on one mount O_CREAT without O_EXCL must open what is there; across two mounts nothing locks
             # both directories, and some servers refuse the same way
             if args.alt_dir:
-                print(f"  retried opening {SHARED}: {named} — two mounts of one export race the walk-then-create, "
-                      f"which a third-party server does too; counted, not charged to the server")
+                print(f"  retried opening {SHARED}: {named} — two mounts of one export race between looking "
+                      f"up and creating the name; counted, not reported as a failure")
             else:
                 problems.insert(0, f"opening it refused {named} on a SINGLE mount, where O_CREAT without O_EXCL "
                                    f"must open the file that is there")
@@ -5506,10 +5505,9 @@ def main() -> int:
 
     # durability needs the caller's help, so a run without --crash-command says so
     if not args.crash_command:
-        print("  DECLARED GAP: no --crash-command, so nothing made the store lose what it had not made "
-              "durable. Every oracle above ran against a store that never stopped, and a write that was "
-              "acknowledged while living only in a cache passes all of them. Pass a command that kills and "
-              "restarts the thing under test to close this.", file=sys.stderr)
+        print("  DECLARED GAP: no --crash-command, so durability across a crash was not tested: a write "
+              "that is acknowledged but only held in a cache passes every check above. Pass a command that "
+              "kills and restarts the thing under test to test it.", file=sys.stderr)
 
     elapsed = time.monotonic() - started_at
     if elapsed < args.duration:

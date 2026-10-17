@@ -93,7 +93,11 @@ jobs:
   # badge JSON per target and a summary, force-pushed as one commit to the orphan "status" branch
   status:
     needs: [showcase, repro]
-    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || (inputs.mode == 'assert' && inputs.only == ''))
+    # a cancelled job left no result, and its badge would read "setup failed"
+    if: >-
+      always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      && (github.event_name != 'workflow_dispatch' || (inputs.mode == 'assert' && inputs.only == ''))
+      && needs.showcase.result != 'cancelled' && needs.repro.result != 'cancelled'
     runs-on: ubuntu-24.04
     permissions:
       contents: write

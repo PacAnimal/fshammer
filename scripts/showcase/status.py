@@ -27,7 +27,8 @@ def badge(result: dict | None, repro_results: list[dict | None]) -> tuple[str, s
     if any(r is None or not r["matched"] for r in repro_results):
         return "reproducer changed", "red", "reproducer changed"
     if not result["finished"]:
-        return "did not finish", "red", "did not finish"
+        # as recorded, since a hang that was not recorded fails the expectation above
+        return "does not finish", "orange", "as recorded"
     if result["fails"] == 0 and result["exit"] == 0:
         return "no failures", "brightgreen", "as recorded"
     checks = "failing check" if result["fails"] == 1 else "failing checks"
