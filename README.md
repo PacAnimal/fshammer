@@ -211,6 +211,26 @@ gap.
 - Many checks are races between writers, so a clean run does not show they cannot fail. A longer
   `--duration` gives them more chances.
 
+## Showcase
+
+[showcase/](showcase/) records what fshammer reports against filesystems set up on a GitHub runner: kernel
+NFS and NFS-Ganesha, Samba with the Linux SMB3 client, davfs2, sshfs, bindfs, rclone, and the Linux 9p client
+with u9fs and diod. Each failure is described there as a likely defect, a documented limitation, or not
+established, and each likely defect has a standalone reproducer that does not use fshammer. The
+[Showcase workflow](.github/workflows/showcase.yml) re-runs all of it on every push, weekly and on demand,
+and fails if a target's `FAIL` lines change or a reproducer stops reproducing.
+
+| Target | `FAIL` lines | Reproducers |
+|---|---|---|
+| tmpfs, mounted twice (control) | 0 | |
+| knfsd NFSv3 / NFSv4.2, NFS-Ganesha NFSv4.1, each mounted twice | 0, with optional cross-mount append loss | 1 |
+| Samba, Linux SMB3 client, mounted twice | 12 | 2 |
+| davfs2 over Apache mod_dav | 26 | 2 |
+| sshfs, mounted twice | 13 | 1 |
+| bindfs, mounted once / twice | 1 / 3 | 1 |
+| rclone mount of a local directory | 13 | 2 |
+| Linux 9p client with u9fs (9P2000) and diod (9P2000.L), several cache modes | 5–15 per target | 9 |
+
 ## Related tools
 
 | Tool | What it does | Compared with fshammer |

@@ -4,6 +4,10 @@ name: Showcase
 # a standalone reproducer for each behaviour showcase/README.md reports. A red job means an outcome changed.
 
 on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 4 * * 1"
   workflow_dispatch:
     inputs:
       mode:

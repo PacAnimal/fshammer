@@ -1,9 +1,11 @@
 #!/bin/sh
-# Linux 9p client with u9fs: renaming a directory that holds an open file fails with errno 526, which is
-# ESERVERFAULT, a kernel-internal value that should not reach user programs.
+# Linux 9p client with u9fs: renaming a directory at the top of the export, with a file open beneath it, fails
+# with errno 526 (ESERVERFAULT), which is defined only inside the kernel. The kernel log names the server's
+# error string that the client could not translate.
 set -eu
 dir="$("$(dirname "$0")/../v9fs.sh" u9fs none 1 | tail -n 1 | cut -d' ' -f1)"
-python3 - "$dir" <<'PY'
+status=0
+python3 - "$dir" <<'PY' || status=$?
 import os, sys
 leaked = []
 for parent in (sys.argv[1], os.path.join(sys.argv[1], f"outer-{os.getpid()}")):
@@ -26,3 +28,5 @@ if leaked:
 print("not reproduced")
 sys.exit(1)
 PY
+sudo dmesg | grep 'unknown error' | tail -n 2 || true
+exit $status

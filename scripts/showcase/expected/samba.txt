@@ -6,7 +6,6 @@ FAIL locks/close_drops_every_lock:
 FAIL locks/unlock_splits_a_range:
 FAIL malice/dir_rename_open:
 FAIL malice/mode_is_enforced:
-FAIL malice/negatives:
 FAIL namespace/deep_rename_above:
 FAIL namespace/hardlink:
 FAIL namespace/hostile_names:
