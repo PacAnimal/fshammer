@@ -109,6 +109,7 @@ writers are not hit by the full disk.
 | `--procs N` | `4` | concurrent writer processes. With 1, the contended variants and cross-writer checks are reported as gaps |
 | `--seed N` | `1` | seed for random choices. With `--duration 0` and the same `--procs`, each writer makes the same choices; how many operations run, and their interleaving, still depend on timing |
 | `--keep` | | keep the files after a run with no failures |
+| `--version` | | print the version and exit |
 | `--alt-dir DIR` | | the same directory through a second mount. Odd-numbered writers append to `shared.bin` and watch `observed.log` through it, and the cross-mount lock and publish checks use it. Needs `--procs 2` or more |
 | `--server-root DIR` | | where the server stores these files, if readable from this host. Used to tell a storage loss from a stale client cache. Only for a store where a file fsynced through the mount, with its directory fsynced, is immediately visible there with that content; a store that acknowledges fsync before applying it fails the publish checks |
 | `--crash-command CMD` | | shell command run after verification to make the store lose anything not yet durable. See [Crash testing](https://github.com/PacAnimal/fshammer#crash-testing) |
@@ -247,7 +248,7 @@ The local filesystems are bind mounts of one filesystem, and no target fills a f
 | 9p, u9fs, `cache=mmap` | [![u9fs-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/u9fs-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | As above, and appends are lost while another process calls `stat()`. |
 | 9p, diod 1.1.0, `cache=none` | [![diod-none](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-none.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | After a rename, an open file is answered for its old path; locks are whole-file. |
 | 9p, diod 1.1.0, `cache=loose` | [![diod-loose](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-loose.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | As above, and appends from several processes are lost. |
-| 9p, diod 1.1.0, `cache=mmap` | [![diod-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Appends from several processes are lost; locks are whole-file. |
+| 9p, diod 1.1.0, `cache=mmap` | [![diod-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | As for `cache=none`; appends from several processes are lost, and in some runs while another process calls `stat()`. |
 
 ## Related tools
 

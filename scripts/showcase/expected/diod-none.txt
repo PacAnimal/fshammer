@@ -7,3 +7,4 @@ FAIL sqlite/mmap_write_through:
 ? FAIL locks/conflict_excludes:
 ? FAIL locks/shared_is_shared:
 ? FAIL locks/unlock_splits_a_range:
+# diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies

@@ -83,8 +83,8 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [9p: u9fs](#u9fs-9p2000), `cache=none` | `fcec3e1` | 13, 1 optional | 4 |
 | [9p: u9fs](#u9fs-9p2000), `cache=mmap` | as above | 14, 1 optional; may not finish | 1 |
 | [9p: diod](#diod-9p2000-l), `cache=none` | 1.1.0 | 6, 3 optional | 2 |
-| [9p: diod](#diod-9p2000-l), `cache=loose` | as above | 8, 1 optional | 2 |
-| [9p: diod](#diod-9p2000-l), `cache=mmap` | as above | 6, 2 optional | 1 |
+| [9p: diod](#diod-9p2000-l), `cache=loose` | as above | 7, 2 optional | 2 |
+| [9p: diod](#diod-9p2000-l), `cache=mmap` | as above | 6, 3 optional | 1 |
 
 Each failure below is labelled:
 
@@ -384,6 +384,9 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
   with `O_APPEND` on one mount lose bytes `write()` reported (`shared.bin`). With a page cache the client
   chooses the offsets it writes at; with `cache=none` diod receives the same appends and nothing is lost.
   [`9p-append.sh diod loose`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-append.sh).
+  With `cache=mmap`, `observed.log` also loses or tears blocks in some runs while other processes call
+  `stat()` on it (optional); `v9fs_vfs_getattr_dotl` has the same sequence as the 9P2000 path described for
+  u9fs above.
 - **Limitation:** diod implements POSIX locks with whole-file `flock()` (`diod_ops.c`: "Implement POSIX locks
   in terms of BSD flock locks"), so byte ranges, shared locks and `F_GETLK` do not behave as POSIX describes
   (`locks/*`). Which of the lock checks fail varies between runs.

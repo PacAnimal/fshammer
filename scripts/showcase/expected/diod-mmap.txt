@@ -6,3 +6,6 @@ FAIL malice/rename_live:
 FAIL shared.bin:
 ? FAIL locks/shared_is_shared:
 ? FAIL locks/unlock_splits_a_range:
+# appends to observed.log race with stat() through the page cache in some runs
+? FAIL observed.log:
+# diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies
