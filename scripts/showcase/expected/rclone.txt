@@ -1,0 +1,14 @@
+FAIL identity/chmod_keeps_bytes_and_mtime:
+FAIL identity/ctime_is_not_just_mtime:
+FAIL identity/truncate_grow_reads_zeros:
+FAIL inode/case_only_rename:
+FAIL inode/directory_size_is_usable:
+FAIL inode/rename_keeps_inode:
+FAIL inode/rename_over_kills_target:
+FAIL inode/subtree_move_keeps_inodes:
+FAIL inode/three_rename_swap:
+FAIL malice/mode_is_enforced:
+FAIL malice/rename_over_open:
+FAIL namespace/hostile_names:
+FAIL namespace/symlink_into_mount:
+? FAIL observed.log:

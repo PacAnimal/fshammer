@@ -47,7 +47,7 @@ jobs:
         repro: ["davfs2-readdir", "davfs2-utime-before-close", "samba-hardlink", "samba-utime-before-close",
                 "knfsd-v4-lock-two-mounts", "sshfs-readdir-inode", "bindfs-hardlink",
                 "rclone-truncate-grow", "rclone-rename-over-open",
-                "9p-locks-9p2000", "9p-unlink-open u9fs", "9p-unlink-open diod", "9p-rename-ancestor",
+                "9p-locks-9p2000", "9p-unlink-open u9fs", "9p-unlink-open diod", "9p-rename-errno",
                 "9p-append u9fs none", "9p-append diod loose", "9p-append diod mmap",
                 "9p-stat-during-append u9fs", "9p-rename-dir-loose"]
     steps:

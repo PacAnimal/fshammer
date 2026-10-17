@@ -1,0 +1,8 @@
+FAIL locks/close_drops_every_lock:
+FAIL locks/getlk_names_the_holder:
+FAIL locks/ranges_are_ranges:
+FAIL malice/unlink_open:
+FAIL shared.bin:
+? FAIL locks/shared_is_shared:
+? FAIL locks/unlock_splits_a_range:
+? FAIL observed.log:
