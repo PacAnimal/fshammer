@@ -17,8 +17,10 @@ layers, overlay and encrypting filesystems.
 - One Python file, standard library only, Python 3.12+. Linux and macOS.
 
 > [!WARNING]
-> Use a scratch filesystem. See [Disk usage](#disk-usage): a default run occupies up to about 1.5 GB, and
-> if the filesystem reports less than 2 GiB free, one check fills it until writes fail with ENOSPC.
+> fshammer writes a lot of data: up to about 1.5 GB at once with the defaults. If the filesystem has less
+> than 2 GiB free, it also fills it completely on purpose, to test what happens when it runs out of space.
+> While it is full, every other program writing to that filesystem gets "No space left on device".
+> Don't point it at a filesystem your system or other users depend on. See [Disk usage](#disk-usage).
 
 ## Quick start
 
