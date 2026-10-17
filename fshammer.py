@@ -519,6 +519,13 @@ def hammer_shared(path: str, writer: int, deadline: float, rng: random.Random, w
                 os.close(fd)
 
 
+def cannot_start(what: str, exc: OSError) -> int:
+    """The filesystem failed before any workload ran: one FAIL line and a verdict, not a traceback."""
+    print(f"  FAIL setup: {what}: {exc.__class__.__name__}: {exc}", file=sys.stderr)
+    print("fshammer: 1 problem(s) (it could not start)")
+    return 1
+
+
 def usage_error(message: str) -> None:
     """A run that cannot start is an invocation problem, exit 2 like argparse, never a FAIL's exit 1."""
     print(f"fshammer: error: {message}", file=sys.stderr)
@@ -5119,7 +5126,10 @@ def main() -> int:
     _DECLARED_GAPS = frozenset(args.declare_gap)
     # own-files are named by writer and iteration, so a previous run's leftovers would be appended to and
     # reported as the filesystem's fault
-    leftovers = sorted(set(os.listdir(args.dir)) - {"lost+found"}) if os.path.isdir(args.dir) else []
+    try:
+        leftovers = sorted(set(os.listdir(args.dir)) - {"lost+found"}) if os.path.isdir(args.dir) else []
+    except OSError as exc:
+        return cannot_start(f"--dir {args.dir} could not be listed", exc)
     if leftovers:
         ap.error(f"--dir {args.dir}: must be empty or absent, and holds {len(leftovers)} entr"
                  f"{'y' if len(leftovers) == 1 else 'ies'} (first: {leftovers[0]!r})")
@@ -5140,12 +5150,15 @@ def main() -> int:
         if os.path.realpath(args.alt_dir) == os.path.realpath(args.dir):
             usage_error("--alt-dir is the same path as --dir; it must be the same directory through a second mount")
 
-    os.makedirs(args.dir, exist_ok=True)
-    # before the workload, so nothing this run created can answer the probe
-    cap_was_unnecessary = MAX_NAME_LENGTH < NAME_MAX and probe_the_cap(args.dir)
-    if args.alt_dir:
-        make_alt_dir(args.alt_dir)
-        require_same_export(args.dir, args.alt_dir)
+    try:
+        os.makedirs(args.dir, exist_ok=True)
+        # before the workload, so nothing this run created can answer the probe
+        cap_was_unnecessary = MAX_NAME_LENGTH < NAME_MAX and probe_the_cap(args.dir)
+        if args.alt_dir:
+            make_alt_dir(args.alt_dir)
+            require_same_export(args.dir, args.alt_dir)
+    except OSError as exc:
+        return cannot_start("--dir or --alt-dir could not be set up", exc)
 
     def shared_dir_for(w: int) -> str:
         """Odd writers reach shared.bin through --alt-dir; per-writer files stay on --dir."""

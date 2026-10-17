@@ -89,3 +89,13 @@ def test_a_failure_in_the_parents_enospc_check_is_reported_not_raised(tmp_path, 
     fshammer.check_enospc(str(tmp_path / "enospc"), result)
 
     assert "enospc_is_honest" in result.failures, "the error escaped instead of being recorded"
+
+
+def test_a_directory_that_cannot_be_created_is_a_fail_not_a_traceback(tmp_path):
+    blocker = tmp_path / "file"
+    blocker.write_bytes(b"x")
+    proc = run("--dir", str(blocker / "run"), "--duration", "0")
+
+    assert proc.returncode == 1, proc.stderr[-1000:]
+    assert "FAIL setup:" in proc.stderr
+    assert "Traceback" not in proc.stderr

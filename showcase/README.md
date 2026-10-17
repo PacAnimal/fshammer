@@ -102,9 +102,9 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [9p: diod, `cache=none`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 2 |
 | [9p: diod, `cache=loose`](#diod-9p2000l) | 1.1.0 | 7, 3 optional | 3 |
 | [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 1 |
-| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 | 0 | 1 |
-| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 | 0 |  |
-| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 | 0 |  |
+| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 | 15 | 1 |
+| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 | 15 |  |
+| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 | 15 |  |
 <!-- /showcase-table -->
 
 Each failure below is labelled:
