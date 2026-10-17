@@ -48,6 +48,16 @@ jobs:
         env:
           FSHAMMER_REFERENCE_BASE: ${{ runner.temp }}/reference
 
+  # the showcase tables in both READMEs are generated from scripts/showcase/; they must not drift
+  showcase-tables:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python scripts/showcase/table.py --check
+
   install:
     runs-on: ubuntu-latest
     steps:

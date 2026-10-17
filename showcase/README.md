@@ -71,28 +71,38 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 
 ## Results
 
+<!-- showcase-table -->
 | Target | Version | Distinct failing checks | Reproducers |
 |---|---|---|---|
-| tmpfs, mounted twice (control) | kernel | 0 | |
-| ext4, bind-mounted twice | kernel | 0 | |
-| XFS, bind-mounted twice | kernel | 0 | |
-| Btrfs, bind-mounted twice | kernel | 0 | |
-| overlayfs over ext4, mounted twice | kernel | 0 | |
-| [knfsd, NFSv3](#knfsd-and-nfs-ganesha), mounted twice | kernel | 0, 1 optional | |
-| [knfsd, NFSv4.2](#knfsd-and-nfs-ganesha), mounted twice | kernel | 0, 2 optional | 1 |
-| [NFS-Ganesha, NFSv4.1](#knfsd-and-nfs-ganesha), mounted twice | 4.3 (Ubuntu) | 0 | |
-| [Samba](#samba), Linux SMB3 client, mounted twice | 4.19.5 (Ubuntu) | 12 | 2 |
-| [davfs2](#davfs2) over Apache mod_dav | 1.7.3 | 4 | 1 |
-| [davfs2](#davfs2-1-7-0-ubuntu-24-04), Ubuntu's package | 1.7.0 (Ubuntu) | 26 | 1 |
-| [sshfs](#sshfs), mounted twice | 3.7.6, libfuse 3.18.3 | 19 | 1 |
-| [bindfs](#bindfs), mounted once | 1.18.4, libfuse 3.18.3 | 0 | |
-| [bindfs](#bindfs), mounted twice | as above | 2 | |
-| [rclone mount](#rclone) of a local directory | v1.75.2 | 13 | 2 |
-| [9p: u9fs](#u9fs-9p2000), `cache=none` | `fcec3e1` | 13, 1 optional | 4 |
-| [9p: u9fs](#u9fs-9p2000), `cache=mmap` | as above | 14, 1 optional; may not finish | 1 |
-| [9p: diod](#diod-9p2000-l), `cache=none` | 1.1.0 | 6, 3 optional | 2 |
-| [9p: diod](#diod-9p2000-l), `cache=loose` | as above | 7, 2 optional | 2 |
-| [9p: diod](#diod-9p2000-l), `cache=mmap` | as above | 6, 3 optional | 1 |
+| tmpfs, mounted twice (control) | kernel | 0 |  |
+| ext4 on a loop image, bind-mounted twice | kernel | 0 |  |
+| XFS on a loop image, bind-mounted twice | kernel | 0 |  |
+| Btrfs on a loop image, bind-mounted twice | kernel | 0 |  |
+| overlayfs over ext4, mounted twice | kernel | 0 |  |
+| [knfsd, NFSv3, mounted twice on one client](#knfsd) | kernel | 0, 1 optional |  |
+| [knfsd, NFSv4.2, mounted twice on one client](#knfsd) | kernel | 0, 2 optional | 1 |
+| [knfsd, NFSv4.2, two clients](#knfsd) | kernel | 0 | 1 |
+| [NFS-Ganesha, NFSv3, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |
+| [NFS-Ganesha, NFSv4.0, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |
+| [NFS-Ganesha, NFSv4.1, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |
+| [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 | 1 |
+| [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.8 | 0 | 1 |
+| [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12 | 2 |
+| [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4 | 1 |
+| [davfs2, Ubuntu's package](#davfs2-1-7-0-ubuntu-24-04) | 1.7.0 (Ubuntu) | 26, 1 optional | 1 |
+| [sshfs, mounted twice](#sshfs) | 3.7.6, libfuse 3.18.3 | 19 |  |
+| [bindfs, mounted once](#bindfs) | 1.18.4, libfuse 3.18.3 | 0 |  |
+| [bindfs, mounted twice](#bindfs) | 1.18.4, libfuse 3.18.3 | 2 |  |
+| [rclone mount, `--vfs-cache-mode writes`](#rclone) | v1.75.2 | 13 | 2 |
+| [9p: u9fs, `cache=none`](#u9fs-9p2000) | `fcec3e1` | 13, 1 optional | 4 |
+| [9p: u9fs, `cache=mmap`](#u9fs-9p2000) | `fcec3e1` | 14, 1 optional; may not finish | 1 |
+| [9p: diod, `cache=none`](#diod-9p2000-l) | 1.1.0 | 6, 3 optional | 2 |
+| [9p: diod, `cache=loose`](#diod-9p2000-l) | 1.1.0 | 7, 2 optional | 3 |
+| [9p: diod, `cache=mmap`](#diod-9p2000-l) | 1.1.0 | 6, 3 optional | 1 |
+| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p) | 15.8 | 0 |  |
+| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p) | 15.8 | 0 |  |
+| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p) | 15.8 | 0 |  |
+<!-- /showcase-table -->
 
 Each failure below is labelled:
 

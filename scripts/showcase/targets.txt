@@ -1,0 +1,29 @@
+# Showcase targets, in table order: id | name | version | section of showcase/README.md
+tmpfs                | tmpfs, mounted twice (control)                   | kernel                      |
+ext4                 | ext4 on a loop image, bind-mounted twice         | kernel                      |
+xfs                  | XFS on a loop image, bind-mounted twice          | kernel                      |
+btrfs                | Btrfs on a loop image, bind-mounted twice        | kernel                      |
+overlayfs            | overlayfs over ext4, mounted twice               | kernel                      |
+knfsd-v3             | knfsd, NFSv3, mounted twice on one client        | kernel                      | knfsd
+knfsd-v4.2           | knfsd, NFSv4.2, mounted twice on one client      | kernel                      | knfsd
+knfsd-v4.2-2client   | knfsd, NFSv4.2, two clients                      | kernel                      | knfsd
+ganesha-v3           | NFS-Ganesha, NFSv3, mounted twice on one client  | 15.8                        | nfs-ganesha
+ganesha-v4.0         | NFS-Ganesha, NFSv4.0, mounted twice on one client| 15.8                        | nfs-ganesha
+ganesha-v4.1         | NFS-Ganesha, NFSv4.1, mounted twice on one client| 15.8                        | nfs-ganesha
+ganesha-v4.2         | NFS-Ganesha, NFSv4.2, mounted twice on one client| 15.8                        | nfs-ganesha
+ganesha-v4.2-2client | NFS-Ganesha, NFSv4.2, two clients                | 15.8                        | nfs-ganesha
+samba                | Samba, Linux SMB3 client, mounted twice          | 4.19.5 (Ubuntu)             | samba
+davfs2               | davfs2 over Apache mod_dav                       | 1.7.3                       | davfs2
+davfs2-ubuntu        | davfs2, Ubuntu's package                         | 1.7.0 (Ubuntu)              | davfs2-1-7-0-ubuntu-24-04
+sshfs                | sshfs, mounted twice                             | 3.7.6, libfuse 3.18.3       | sshfs
+bindfs-single        | bindfs, mounted once                             | 1.18.4, libfuse 3.18.3      | bindfs
+bindfs               | bindfs, mounted twice                            | 1.18.4, libfuse 3.18.3      | bindfs
+rclone               | rclone mount, `--vfs-cache-mode writes`          | v1.75.2                     | rclone
+u9fs-none            | 9p: u9fs, `cache=none`                           | `fcec3e1`                   | u9fs-9p2000
+u9fs-mmap            | 9p: u9fs, `cache=mmap`                           | `fcec3e1`                   | u9fs-9p2000
+diod-none            | 9p: diod, `cache=none`                           | 1.1.0                       | diod-9p2000-l
+diod-loose           | 9p: diod, `cache=loose`                          | 1.1.0                       | diod-9p2000-l
+diod-mmap            | 9p: diod, `cache=mmap`                           | 1.1.0                       | diod-9p2000-l
+ganesha-9p-none      | 9p: NFS-Ganesha, `cache=none`                    | 15.8                        | nfs-ganesha-9p
+ganesha-9p-loose     | 9p: NFS-Ganesha, `cache=loose`                   | 15.8                        | nfs-ganesha-9p
+ganesha-9p-mmap      | 9p: NFS-Ganesha, `cache=mmap`                    | 15.8                        | nfs-ganesha-9p

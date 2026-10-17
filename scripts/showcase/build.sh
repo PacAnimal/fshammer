@@ -1,6 +1,7 @@
 #!/bin/bash
 # Builds and installs a pinned upstream release into /usr/local, from a tarball checked against its SHA-256.
-# Usage: build.sh <libfuse|sshfs|bindfs|davfs2|diod>. Does nothing if that version is already installed.
+# Usage: build.sh <libfuse|sshfs|bindfs|davfs2|diod|ganesha>. Does nothing if that version is already installed.
+# nfs-ganesha publishes no tarball, so it is cloned at its release tag and checked against the tag's commit.
 set -euo pipefail
 
 name="$1"
@@ -25,6 +26,11 @@ case "$name" in
              url=https://github.com/chaos/diod/releases/download/v$version/diod-$version.tar.gz
              sha=93cc05fdc19352d1bf30f716e78d040bf9d6d128cc9cf3579b1d8b36a0898233
              deps=(build-essential pkg-config libncurses-dev libcap-dev) ;;
+    ganesha) version=15.8
+             url=https://github.com/nfs-ganesha/nfs-ganesha.git
+             sha=64912e90ec8d5a654c18cc5d0fb4795a4c28422b
+             deps=(build-essential cmake git bison flex pkg-config liburcu-dev libcap-dev libblkid-dev uuid-dev
+                   libnfsidmap-dev libacl1-dev libkrb5-dev libnsl-dev libsqlite3-dev libssl-dev) ;;
     *)       echo "unknown component: $name" >&2; exit 2 ;;
 esac
 
@@ -37,9 +43,14 @@ case "$name" in sshfs|bindfs) "$0" libfuse ;; esac
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq curl "${deps[@]}" >/dev/null
 work="$(mktemp -d)"
-curl -fsSL "$url" -o "$work/src.tar"
-echo "$sha  $work/src.tar" | sha256sum -c --quiet -
-tar -xf "$work/src.tar" -C "$work"
+if [ "$name" = ganesha ]; then
+    git clone -q --depth 1 --branch "V$version" --recurse-submodules --shallow-submodules "$url" "$work/src"
+    [ "$(git -C "$work/src" rev-parse HEAD)" = "$sha" ] || { echo "V$version is not $sha" >&2; exit 1; }
+else
+    curl -fsSL "$url" -o "$work/src.tar"
+    echo "$sha  $work/src.tar" | sha256sum -c --quiet -
+    tar -xf "$work/src.tar" -C "$work"
+fi
 src="$(find "$work" -mindepth 1 -maxdepth 1 -type d)"
 export PKG_CONFIG_PATH="/usr/local/lib/$(gcc -dumpmachine 2>/dev/null || uname -m)/pkgconfig:/usr/local/lib/pkgconfig"
 
@@ -64,6 +75,18 @@ case "$name" in
     diod)
         (cd "$src" && ./configure -q --prefix=/usr/local --disable-auth --disable-config >&2 && make -s >&2 \
             && sudo make -s install >&2)
+        ;;
+    ganesha)
+        # the NFS and 9P servers with the VFS FSAL; every optional integration off
+        cmake -S "$src/src" -B "$work/build" -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release \
+            -DUSE_9P=ON -DUSE_FSAL_VFS=ON -DUSE_FSAL_CEPH=OFF -DUSE_FSAL_GLUSTER=OFF -DUSE_FSAL_GPFS=OFF \
+            -DUSE_FSAL_RGW=OFF -DUSE_FSAL_XFS=OFF -DUSE_FSAL_LUSTRE=OFF -DUSE_FSAL_PROXY_V4=OFF \
+            -DUSE_FSAL_PROXY_V3=OFF -DUSE_FSAL_KVSFS=OFF -DUSE_FSAL_LIZARDFS=OFF -DUSE_FSAL_SAUNAFS=OFF \
+            -DUSE_FSAL_MEM=OFF -DUSE_GSS=OFF -D_MSPAC_SUPPORT=OFF -DUSE_DBUS=OFF -DUSE_ADMIN_TOOLS=OFF \
+            -DUSE_GUI_ADMIN_TOOLS=OFF -DUSE_RADOS_RECOV=OFF -DRADOS_URLS=OFF -DUSE_LTTNG=OFF \
+            -DUSE_MONITORING=OFF -DALLOCATOR=libc >&2
+        cmake --build "$work/build" -j "$(nproc)" >&2
+        sudo cmake --install "$work/build" >&2
         ;;
     *)
         (cd "$src" && ./configure -q --prefix=/usr/local >&2 && make -s >&2 && sudo make -s install >&2)

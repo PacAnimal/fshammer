@@ -2,8 +2,8 @@
 """Run fshammer and require a recorded outcome.
 
 The outcome is the set of FAIL signatures, read from an expectations file with one signature per line, each
-tagged with how showcase/README.md classifies it: [defect] (a likely defect), [open] (not established) or
-[limitation] (documented, with a source):
+tagged with how showcase/README.md classifies it: [defect] (a likely defect), [follows] (fails because of
+another failure of the same target), [open] (not established) or [limitation] (documented, with a source):
 
     FAIL locks/conflict_excludes: [defect]       must appear
     ? FAIL shared.bin: [limitation]              may appear (seen in some recorded runs, not all)
@@ -77,7 +77,7 @@ def signatures(err: str) -> set[str]:
     return {signature(line) for line in err.splitlines() if line.strip().startswith("FAIL")}
 
 
-TAGS = ("defect", "open", "limitation")
+TAGS = ("defect", "follows", "open", "limitation")
 
 
 def load(path: pathlib.Path) -> tuple[set[str], set[str], dict[str, str]]:

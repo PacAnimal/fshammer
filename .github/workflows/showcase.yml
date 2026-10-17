@@ -40,7 +40,9 @@ jobs:
       fail-fast: false
       matrix:
         target: [tmpfs, ext4, xfs, btrfs, overlayfs, davfs2, davfs2-ubuntu, sshfs, bindfs, bindfs-single, rclone,
-                 samba, knfsd-v3, knfsd-v4.2, ganesha-v4.1,
+                 samba, knfsd-v3, knfsd-v4.2, knfsd-v4.2-2client,
+                 ganesha-v3, ganesha-v4.0, ganesha-v4.1, ganesha-v4.2, ganesha-v4.2-2client,
+                 ganesha-9p-none, ganesha-9p-loose, ganesha-9p-mmap,
                  u9fs-none, u9fs-mmap, diod-none, diod-loose, diod-mmap]
     steps:
       - uses: actions/checkout@v7

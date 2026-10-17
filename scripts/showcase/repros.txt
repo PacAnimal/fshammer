@@ -5,7 +5,10 @@ davfs2-ubuntu-readdir            davfs2-ubuntu  reproduced      davfs2-readdir.s
 davfs2-utime-before-close        davfs2         reproduced      davfs2-utime-before-close.sh
 samba-hardlink                   samba          reproduced      samba-hardlink.sh
 samba-utime-before-close         samba          reproduced      samba-utime-before-close.sh
-knfsd-v4-lock-two-mounts         knfsd-v4.2     reproduced      knfsd-v4-lock-two-mounts.sh
+knfsd-v4-lock-two-mounts         knfsd-v4.2     reproduced      nfs-lock-two-mounts.sh knfsd 4.2 same
+knfsd-v4-lock-two-clients        knfsd-v4.2-2client  not-reproduced  nfs-lock-two-mounts.sh knfsd 4.2 2client
+ganesha-v4-lock-two-mounts       ganesha-v4.2   not-reproduced  nfs-lock-two-mounts.sh ganesha 4.2 same
+ganesha-v4-lock-two-clients      ganesha-v4.2-2client  not-reproduced  nfs-lock-two-mounts.sh ganesha 4.2 2client
 rclone-truncate-grow             rclone         reproduced      rclone-truncate-grow.sh
 rclone-rename-over-open          rclone         reproduced      rclone-rename-over-open.sh
 9p-locks-9p2000                  u9fs-none      reproduced      9p-locks-9p2000.sh

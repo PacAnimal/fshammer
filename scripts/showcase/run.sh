@@ -26,7 +26,15 @@ case "$target" in
     samba)           pkgs=(samba cifs-utils);          mounts="$("$here/samba.sh")" ;;
     knfsd-v3)        pkgs=(nfs-kernel-server);         mounts="$("$here/knfsd.sh" 3)" ;;
     knfsd-v4.2)      pkgs=(nfs-kernel-server);         mounts="$("$here/knfsd.sh" 4.2)" ;;
-    ganesha-v4.1)    pkgs=(nfs-ganesha);               mounts="$("$here/ganesha.sh" 4.1)" ;;
+    knfsd-v4.2-2client) pkgs=(nfs-kernel-server);      mounts="$("$here/knfsd.sh" 4.2 2client)" ;;
+    ganesha-v3)      pkgs=();                          mounts="$("$here/ganesha.sh" nfs 3)" ;;
+    ganesha-v4.0)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.0)" ;;
+    ganesha-v4.1)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.1)" ;;
+    ganesha-v4.2)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.2)" ;;
+    ganesha-v4.2-2client) pkgs=();                     mounts="$("$here/ganesha.sh" nfs 4.2 2client)" ;;
+    ganesha-9p-none) pkgs=();                          mounts="$("$here/ganesha.sh" 9p none)" ;;
+    ganesha-9p-loose) pkgs=();                         mounts="$("$here/ganesha.sh" 9p loose)" ;;
+    ganesha-9p-mmap) pkgs=();                          mounts="$("$here/ganesha.sh" 9p mmap)" ;;
     u9fs-none)       pkgs=();                          mounts="$("$here/v9fs.sh" u9fs none 1)" ;;
     u9fs-mmap)       pkgs=();                          mounts="$("$here/v9fs.sh" u9fs mmap 1)" ;;
     diod-none)       pkgs=();                          mounts="$("$here/v9fs.sh" diod none 1)" ;;
