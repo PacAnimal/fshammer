@@ -1,0 +1,61 @@
+"""What a run leaves behind, and what it refuses to start in."""
+import subprocess
+import sys
+
+from conftest import HAMMER
+
+
+def run(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(HAMMER), *args], capture_output=True, text=True, check=False)
+
+
+def test_a_non_empty_dir_is_refused_before_anything_is_written(tmp_path):
+    """Own-files are named by writer and iteration, so a previous run's leftovers would read as data loss."""
+    (tmp_path / "leftover.bin").write_bytes(b"x")
+    proc = run("--dir", str(tmp_path), "--duration", "0")
+
+    assert proc.returncode == 2, proc.stderr
+    assert "must be empty or absent" in proc.stderr
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["leftover.bin"], "the refused run wrote something"
+
+
+def test_a_clean_run_removes_what_it_created(tmp_path):
+    target = tmp_path / "run"
+    proc = run("--dir", str(target), "--duration", "0", "--procs", "2")
+
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert list(target.iterdir()) == [], "a clean run left files behind"
+
+
+def test_keep_leaves_the_files_in_place(tmp_path):
+    target = tmp_path / "run"
+    proc = run("--dir", str(target), "--duration", "0", "--procs", "2", "--keep")
+
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert any(target.iterdir()), "--keep removed the files"
+
+
+def test_a_declared_variant_stays_skipped_when_the_run_repeats(tmp_path):
+    """The first pass and the repeats must both honour a declaration."""
+    proc = run("--dir", str(tmp_path / "run"), "--duration", "20", "--procs", "2",
+               "--declare-gap", "malice/sparse_far_offset")
+
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert "sparse_far_offset=0" in proc.stdout, "a declared variant ran during the repeats"
+    assert "DECLARED GAP malice/sparse_far_offset" in proc.stderr
+
+
+def test_one_writer_reports_the_contended_variants_as_gaps(tmp_path):
+    """With nobody to contend with, a contended variant proves nothing and must not count as completed."""
+    proc = run("--dir", str(tmp_path / "run"), "--duration", "0", "--procs", "1")
+
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert "DECLARED GAP malice/contended_exclusive" in proc.stderr
+    assert "DECLARED GAP malice/contended_tree" in proc.stderr
+
+
+def test_invalid_invocations_exit_2(tmp_path):
+    for args in (["--procs", "0"], ["--duration", "-1"], ["--alt-dir", str(tmp_path / "run"), "--procs", "2"],
+                 ["--alt-dir", str(tmp_path / "elsewhere"), "--procs", "1"]):
+        proc = run("--dir", str(tmp_path / "run"), *args)
+        assert proc.returncode == 2, f"{args}: exit {proc.returncode}\n{proc.stderr[-1000:]}"

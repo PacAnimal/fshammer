@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install pytest
+      - run: python -m pytest -rs
+      # the mandatory pass against the runner's own disk
+      - name: smoke
+        run: python fshammer.py --dir "$RUNNER_TEMP/fshammer" --duration 0 --procs 4
+
+  selftest:
+    name: self-test on ext4
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      # reference filesystems are mounted with sudo, then tested unprivileged so permission checks are real
+      - name: reference filesystems
+        run: |
+          eval "$(scripts/reference-fs.sh up)"
+          env | grep '^FSHAMMER_' >> "$GITHUB_ENV"
+        env:
+          FSHAMMER_REFERENCE_BASE: ${{ runner.temp }}/reference
+      - run: python -m pytest -rs
+      - name: teardown
+        if: always()
+        run: scripts/reference-fs.sh down
+        env:
+          FSHAMMER_REFERENCE_BASE: ${{ runner.temp }}/reference
+
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - run: fshammer --dir "$RUNNER_TEMP/fshammer" --duration 0 --procs 2
