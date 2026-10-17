@@ -34,8 +34,8 @@ jobs:
   showcase:
     name: ${{ matrix.target }}
     runs-on: ubuntu-24.04
-    # record mode runs each target three times
-    timeout-minutes: 90
+    # record mode runs each target three times, each up to its fshammer timeout (30 minutes by default)
+    timeout-minutes: ${{ inputs.mode == 'record' && 150 || 60 }}
     strategy:
       fail-fast: false
       matrix:

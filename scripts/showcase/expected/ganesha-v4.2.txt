@@ -1,0 +1,2 @@
+# a blocking lockf() under contention sometimes fails with EIO
+? FAIL locks/exclusive_rmw: [open]

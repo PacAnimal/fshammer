@@ -7,6 +7,7 @@
 The tables sit between <!-- showcase-table --> and <!-- /showcase-table --> markers.
 """
 import pathlib
+import re
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
@@ -98,8 +99,19 @@ def replace(path: pathlib.Path, table: str) -> tuple[str, str]:
     return text, text[:i] + "\n" + table + "\n" + text[j:]
 
 
+def anchor(heading: str) -> str:
+    """GitHub's anchor for a heading: lower case, punctuation dropped, spaces as hyphens."""
+    return re.sub(r"[^\w\- ]", "", heading.strip().lower()).replace(" ", "-")
+
+
 def main() -> int:
     check = "--check" in sys.argv[1:]
+    page = (ROOT / "showcase" / "README.md").read_text()
+    headings = {anchor(h) for h in re.findall(r"^#+ (.+)$", page, re.M)}
+    missing = sorted({t["section"] for t in targets() if t["section"] and t["section"] not in headings})
+    if missing:
+        print(f"targets.txt names sections showcase/README.md does not have: {', '.join(missing)}")
+        return 1
     listed = {t["id"] for t in targets()}
     files = {p.stem for p in (HERE / "expected").glob("*.txt")}
     if listed != files:

@@ -1,6 +1,6 @@
 #!/bin/sh
 # The Linux 9p client (v9fs) over TCP to a local 9P server exporting an ext4 directory.
-# Usage: v9fs.sh <diod|diod-ubuntu|u9fs> <cache mode: none|loose|mmap> <mounts: 1|2>
+# Usage: v9fs.sh <diod|diod-ubuntu|u9fs|ganesha> <cache mode: none|loose|mmap> <mounts: 1|2; ganesha: 1>
 # diod (built from its latest release) speaks 9P2000.L; u9fs (Plan 9's Unix 9P server, built from the
 # last commit of its archive) speaks 9P2000.
 # Prints the mount point(s), with "-" for an absent second mount, and with cache=none the exported directory.
@@ -9,6 +9,8 @@ set -eu
 server="$1"
 cache="$2"
 mounts="$3"
+# NFS-Ganesha's 9P server is set up by ganesha.sh, which prints the same fields
+if [ "$server" = ganesha ]; then exec "$(dirname "$0")/ganesha.sh" 9p "$cache"; fi
 base="${SHOWCASE_BASE:-/tmp/showcase}"
 export="$base/v9fs-export"
 a="$base/v9fs-$server-$cache-a"

@@ -11,6 +11,8 @@ log="${SHOWCASE_LOG:-$base/log/$target}"
 export SHOWCASE_BASE="$base"
 
 args=(--duration 0 --procs 4 --seed 1)
+# seconds before fshammer is stopped and reported as not finishing
+timeout=1800
 case "$target" in
     tmpfs)           pkgs=();                          mounts="$("$here/tmpfs.sh")" ;;
     ext4)            pkgs=(e2fsprogs);                 mounts="$("$here/localfs.sh" ext4)" ;;
@@ -27,7 +29,8 @@ case "$target" in
     knfsd-v3)        pkgs=(nfs-kernel-server);         mounts="$("$here/knfsd.sh" 3)" ;;
     knfsd-v4.2)      pkgs=(nfs-kernel-server);         mounts="$("$here/knfsd.sh" 4.2)" ;;
     knfsd-v4.2-2client) pkgs=(nfs-kernel-server);      mounts="$("$here/knfsd.sh" 4.2 2client)" ;;
-    ganesha-v3)      pkgs=();                          mounts="$("$here/ganesha.sh" nfs 3)" ;;
+    # its writers block at their first lock, so waiting long proves nothing more
+    ganesha-v3)      pkgs=();                          mounts="$("$here/ganesha.sh" nfs 3)"; timeout=600 ;;
     ganesha-v4.0)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.0)" ;;
     ganesha-v4.1)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.1)" ;;
     ganesha-v4.2)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.2)" ;;
@@ -65,5 +68,5 @@ fi
 
 mode=()
 [ "${SHOWCASE_MODE:-assert}" = record ] && mode=(--record 3)
-python3 "$here/expect.py" --expected "$here/expected/$target.txt" --log "$log" "${mode[@]}" "${checks[@]}" \
+python3 "$here/expect.py" --expected "$here/expected/$target.txt" --log "$log" --timeout "$timeout" "${mode[@]}" "${checks[@]}" \
     -- "${args[@]}"

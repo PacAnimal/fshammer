@@ -2,7 +2,7 @@
 # diod 1.1.0: a file held open is renamed and a new file created at the old name, as logrotate does. With
 # cache=none, fstat() on the descriptor then fails with ENOENT; with cache=loose, reading the renamed file fails
 # with ENODATA. diod 1.0.24 handles both.
-# Usage: 9p-rename-open.sh <diod|diod-ubuntu|u9fs> <none|loose|mmap>
+# Usage: 9p-rename-open.sh <diod|diod-ubuntu|u9fs|ganesha> <none|loose|mmap>
 set -eu
 dir="$("$(dirname "$0")/../v9fs.sh" "$1" "$2" 1 | tail -n 1 | cut -d' ' -f1)"
 python3 - "$dir/rot-$$" <<'PY'

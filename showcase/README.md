@@ -6,9 +6,9 @@ defect or leaves open.
 
 Where it was practical, the software under test is built from its latest upstream release, because these
 results are meant to be reported upstream: davfs2 1.7.3, sshfs 3.7.6, bindfs 1.18.4, libfuse 3.18.3 (for
-sshfs and bindfs), diod 1.1.0 and rclone v1.75.2. Samba 4.19.5, NFS-Ganesha 4.3, Apache 2.4.58 and the NFS
-server userspace (nfs-utils 2.6.4) are Ubuntu 24.04's packages, behind their current releases (Samba 4.25.0,
-NFS-Ganesha V15.8, nfs-utils 3.1.1). knfsd and the 9p, SMB, NFS and FUSE clients are the runner's kernel,
+sshfs and bindfs), diod 1.1.0, NFS-Ganesha 15.8 (its NFS and 9P servers) and rclone v1.75.2. Samba 4.19.5,
+Apache 2.4.58 and the NFS server userspace (nfs-utils 2.6.4) are Ubuntu 24.04's packages, behind their current
+releases (Samba 4.25.0, nfs-utils 3.1.1). knfsd and the 9p, SMB, NFS and FUSE clients are the runner's kernel,
 which is Ubuntu's Azure build of 6.17, not mainline. u9fs has no releases; it is built from the last commit of
 its archive. Before reporting anything here, reproduce it on the component's current release.
 
@@ -54,13 +54,16 @@ scripts/showcase/repros.py run samba-hardlink /tmp/r   # one reproducer
 Only in a throwaway VM or container, with sudo. The setup scripts:
 
 - install Ubuntu packages, and build and install davfs2, sshfs, bindfs, libfuse and diod under `/usr/local`
-  (downloaded from their release pages and checked against a SHA-256), u9fs from a `git clone`, and rclone
-  from a `.deb` downloaded from downloads.rclone.org;
+  (downloaded from their release pages and checked against a SHA-256), NFS-Ganesha from a `git clone` of its
+  release tag (checked against the tag's commit), u9fs from a `git clone`, and rclone from a `.deb`
+  downloaded from downloads.rclone.org;
 - overwrite `/etc/exports` and `/etc/samba/smb.conf`, write `/etc/ganesha/showcase.conf` and an Apache
   configuration, enable Apache's `dav` and `dav_fs` modules, and append to `/etc/davfs2/secrets`;
 - add a system user `davfs2`, an SSH key to `~/.ssh/authorized_keys`, and a Samba password (`showcase`) for
   the current user;
 - set the NFS server's NFSv4 grace and lease times and the NLM grace period to 10 seconds;
+- for the two-client targets, create a network namespace `fshammer-client2` and a veth pair (`fshv0`, with
+  10.231.0.1/24 on the host side);
 - start servers, and leave everything mounted and running. Nothing is cleaned up.
 
 ext4, XFS and Btrfs are mounted from a sparse loop image and bind-mounted a second time, so both mounts are
@@ -79,29 +82,29 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | XFS on a loop image, bind-mounted twice | kernel | 0 |  |
 | Btrfs on a loop image, bind-mounted twice | kernel | 0 |  |
 | overlayfs over ext4, mounted twice | kernel | 0 |  |
-| [knfsd, NFSv3, mounted twice on one client](#knfsd) | kernel | 0, 1 optional |  |
-| [knfsd, NFSv4.2, mounted twice on one client](#knfsd) | kernel | 0, 2 optional | 1 |
+| [knfsd, NFSv3, mounted twice on one client](#knfsd) | kernel | 0, 1 optional | 1 |
+| [knfsd, NFSv4.2, mounted twice on one client](#knfsd) | kernel | 0, 2 optional | 2 |
 | [knfsd, NFSv4.2, two clients](#knfsd) | kernel | 0 | 1 |
-| [NFS-Ganesha, NFSv3, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |
+| [NFS-Ganesha, NFSv3, mounted twice on one client](#nfs-ganesha) | 15.8 | 0; may not finish | 1 |
 | [NFS-Ganesha, NFSv4.0, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |
-| [NFS-Ganesha, NFSv4.1, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |
-| [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 | 1 |
-| [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.8 | 0 | 1 |
+| [NFS-Ganesha, NFSv4.1, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 1 optional | 1 |
+| [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 1 optional | 2 |
+| [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.8 | 0, 2 optional | 1 |
 | [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12 | 2 |
 | [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4 | 1 |
-| [davfs2, Ubuntu's package](#davfs2-1-7-0-ubuntu-24-04) | 1.7.0 (Ubuntu) | 26, 1 optional | 1 |
+| [davfs2, Ubuntu's package](#davfs2-170-ubuntu-2404) | 1.7.0 (Ubuntu) | 26, 1 optional | 1 |
 | [sshfs, mounted twice](#sshfs) | 3.7.6, libfuse 3.18.3 | 19 |  |
 | [bindfs, mounted once](#bindfs) | 1.18.4, libfuse 3.18.3 | 0 |  |
 | [bindfs, mounted twice](#bindfs) | 1.18.4, libfuse 3.18.3 | 2 |  |
 | [rclone mount, `--vfs-cache-mode writes`](#rclone) | v1.75.2 | 13 | 2 |
 | [9p: u9fs, `cache=none`](#u9fs-9p2000) | `fcec3e1` | 13, 1 optional | 4 |
 | [9p: u9fs, `cache=mmap`](#u9fs-9p2000) | `fcec3e1` | 14, 1 optional; may not finish | 1 |
-| [9p: diod, `cache=none`](#diod-9p2000-l) | 1.1.0 | 6, 3 optional | 2 |
-| [9p: diod, `cache=loose`](#diod-9p2000-l) | 1.1.0 | 7, 2 optional | 3 |
-| [9p: diod, `cache=mmap`](#diod-9p2000-l) | 1.1.0 | 6, 3 optional | 1 |
-| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p) | 15.8 | 0 |  |
-| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p) | 15.8 | 0 |  |
-| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p) | 15.8 | 0 |  |
+| [9p: diod, `cache=none`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 2 |
+| [9p: diod, `cache=loose`](#diod-9p2000l) | 1.1.0 | 7, 2 optional | 3 |
+| [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 1 |
+| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 | 0 | 3 |
+| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 | 0 | 1 |
+| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 | 0 | 2 |
 <!-- /showcase-table -->
 
 Each failure below is labelled:
@@ -114,10 +117,14 @@ Each failure below is labelled:
 
 A failure caused by another one in the same section is noted as such.
 
-## knfsd and NFS-Ganesha
+## knfsd
 
-The export is mounted twice from the same host, the second time with `nosharecache`. Both mounts share one
-NFS client (one NFSv4 client ID and one set of delegations), so the server sees a single client.
+The Linux kernel NFS server exporting an ext4 directory, mounted twice. In the "one client" targets both mounts
+are on this host over loopback, the second with `nosharecache`: they have separate caches but share one NFS
+client (one NFSv4 client ID and one set of delegations), so the server sees a single client. In the
+"two clients" target the second mount is made from another network namespace, through a veth pair, under its
+own hostname ([`netns.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/netns.sh)), so the
+server sees two clients.
 
 ```sh
 echo "/srv/export 127.0.0.1(rw,sync,no_subtree_check,no_root_squash,fsid=0)" > /etc/exports
@@ -126,15 +133,46 @@ mount -t nfs -o vers=4.2 127.0.0.1:/ /mnt/a
 mount -t nfs -o vers=4.2,nosharecache 127.0.0.1:/ /mnt/b
 ```
 
-- **Not established (knfsd NFSv4.2, or the Linux NFS client):** while one process holds an exclusive `fcntl`
-  lock through `/mnt/a`, another process is granted the same lock through `/mnt/b`. Reproduced in every run by
-  [`knfsd-v4-lock-two-mounts.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/knfsd-v4-lock-two-mounts.sh);
-  fshammer's `locks/cross_mount_excludes` catches it only in some runs, so the target itself passes. It does
-  not happen with NFSv3. Because both mounts are one client, the client may be handling the lock locally under
-  a delegation. Repeating it with the second mount in another network namespace or on another host would tell
-  client and server apart.
+- **Not established (Linux NFS client, likely):** with NFSv4.2 and both mounts on one client, while one process
+  holds an exclusive `fcntl` lock through `/mnt/a`, another process is granted the same lock through `/mnt/b`.
+  [`nfs-lock-two-mounts.sh knfsd 4.2 same`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/nfs-lock-two-mounts.sh)
+  reproduces it in every run; fshammer's `locks/cross_mount_excludes` catches it only in some runs. With two
+  clients (`nfs-lock-two-mounts.sh knfsd 4.2 2client`) the second lock is refused, and with NFSv3 it does not
+  happen. That points at the client deciding the lock locally, for example under a delegation, separately for
+  each of its two superblocks. Repeating the one-client case with delegations disabled on the server
+  (`fs.leases-enable=0`) and with a packet capture would settle it.
 - **Limitation:** `shared.bin` sometimes loses appends made through both mounts (optional). `open(2)`
-  documents that `O_APPEND` on NFS is not atomic when more than one client appends.
+  documents that `O_APPEND` on NFS is not atomic when more than one client appends; it is shown regardless.
+
+## NFS-Ganesha
+
+NFS-Ganesha 15.8, built from its release with the VFS FSAL, exporting an ext4 directory, mounted twice with
+NFSv3, 4.0, 4.1 and 4.2 on one client as for knfsd, and with NFSv4.2 from two clients.
+
+```
+NFS_CORE_PARAM { Protocols = 3, 4, 9P; }
+EXPORT { Export_Id = 1; Path = /srv/export; Pseudo = /export; Access_Type = RW; Squash = No_Root_Squash;
+         Protocols = 3, 4, 9P; FSAL { Name = VFS; } }
+```
+
+- **Not established (NFS-Ganesha 15.8 or the Linux NFS client):** with NFSv4.1 and 4.2, four processes on one
+  mount taking turns at an exclusive lock with `lockf(F_LOCK)`, which blocks until the lock is granted,
+  sometimes get EIO instead (`locks/exclusive_rmw`, in some runs).
+  [`nfs-lock-contention.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/nfs-lock-contention.sh).
+  It does not happen with knfsd. A packet capture would show whether the server answers a LOCK with an error
+  the client then reports as EIO.
+- Unlike knfsd, a lock held through one mount excludes the same lock through the other, with one client and
+  with two.
+- **Limitation:** `shared.bin` sometimes loses appends made through two clients (optional), as for knfsd.
+- **Not established (NFS-Ganesha 15.8 NFSv3 locking, or this setup):** with NFSv3 the first `fcntl` lock does
+  not return. fshammer does not finish: all four writers wait in the kernel in `nlmclnt_call`, the client's
+  NLM request, which is never answered (`hang.txt` in the job's artifact). The job stops fshammer after 10
+  minutes, and the target is recorded as not finishing.
+  [`nfs-v3-lock.sh ganesha`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/nfs-v3-lock.sh)
+  takes one lock on a file nobody else has open; with knfsd on the same host it returns at once. Whether
+  Ganesha's NLM service is registered and reachable here (`rpcinfo -p`), and a capture of the NLM traffic,
+  would tell a server defect from a setup problem.
+- NFSv4.0 shows no failures.
 
 ## Samba
 
@@ -369,6 +407,17 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   `netfs_start_io_write`, waiting for the first. Whether u9fs stopped answering or the client lost the reply is
   not established; the next step is a capture of the 9P traffic. The job saves each process's state, kernel
   wait channel and stack to `hang.txt` in its artifact.
+
+### NFS-Ganesha (9P2000.L)
+
+NFS-Ganesha 15.8's 9P server, from the same build and configuration as above, mounted once with the same client
+options as diod.
+
+```sh
+mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER,access=user,msize=1048576,cache=loose,dfltuid=$(id -u),dfltgid=$(id -g) 127.0.0.1 /mnt/9
+```
+
+GANESHA_9P_PLACEHOLDER
 
 ### diod (9P2000.L)
 

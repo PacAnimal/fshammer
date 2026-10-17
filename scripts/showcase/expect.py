@@ -8,6 +8,7 @@ another failure of the same target), [open] (not established) or [limitation] (d
     FAIL locks/conflict_excludes: [defect]       must appear
     ? FAIL shared.bin: [limitation]              may appear (seen in some recorded runs, not all)
     ? TIMEOUT [open]                             fshammer may not finish; the other lines are then not required
+    TIMEOUT [open]                               fshammer must not finish within --timeout
 
 The job fails if fshammer does not finish, its exit code does not match whether it printed FAIL lines, a
 required signature is missing, or a signature appears that the file does not list.
@@ -152,8 +153,10 @@ def main() -> int:
     want = 1 if found else 0
     problems = []
     if code is None:
-        if "TIMEOUT" not in allowed:
+        if "TIMEOUT" not in allowed | required:
             problems.append(f"fshammer did not finish within {args.timeout}s")
+    elif "TIMEOUT" in required:
+        problems.append(f"fshammer finished (exit {code}), expected it not to within {args.timeout}s")
     elif code != want:
         problems.append(f"fshammer exited {code}, expected {want}")
     if code is not None:

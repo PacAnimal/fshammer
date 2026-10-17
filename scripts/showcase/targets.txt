@@ -14,16 +14,16 @@ ganesha-v4.2         | NFS-Ganesha, NFSv4.2, mounted twice on one client| 15.8  
 ganesha-v4.2-2client | NFS-Ganesha, NFSv4.2, two clients                | 15.8                        | nfs-ganesha
 samba                | Samba, Linux SMB3 client, mounted twice          | 4.19.5 (Ubuntu)             | samba
 davfs2               | davfs2 over Apache mod_dav                       | 1.7.3                       | davfs2
-davfs2-ubuntu        | davfs2, Ubuntu's package                         | 1.7.0 (Ubuntu)              | davfs2-1-7-0-ubuntu-24-04
+davfs2-ubuntu        | davfs2, Ubuntu's package                         | 1.7.0 (Ubuntu)              | davfs2-170-ubuntu-2404
 sshfs                | sshfs, mounted twice                             | 3.7.6, libfuse 3.18.3       | sshfs
 bindfs-single        | bindfs, mounted once                             | 1.18.4, libfuse 3.18.3      | bindfs
 bindfs               | bindfs, mounted twice                            | 1.18.4, libfuse 3.18.3      | bindfs
 rclone               | rclone mount, `--vfs-cache-mode writes`          | v1.75.2                     | rclone
 u9fs-none            | 9p: u9fs, `cache=none`                           | `fcec3e1`                   | u9fs-9p2000
 u9fs-mmap            | 9p: u9fs, `cache=mmap`                           | `fcec3e1`                   | u9fs-9p2000
-diod-none            | 9p: diod, `cache=none`                           | 1.1.0                       | diod-9p2000-l
-diod-loose           | 9p: diod, `cache=loose`                          | 1.1.0                       | diod-9p2000-l
-diod-mmap            | 9p: diod, `cache=mmap`                           | 1.1.0                       | diod-9p2000-l
-ganesha-9p-none      | 9p: NFS-Ganesha, `cache=none`                    | 15.8                        | nfs-ganesha-9p
-ganesha-9p-loose     | 9p: NFS-Ganesha, `cache=loose`                   | 15.8                        | nfs-ganesha-9p
-ganesha-9p-mmap      | 9p: NFS-Ganesha, `cache=mmap`                    | 15.8                        | nfs-ganesha-9p
+diod-none            | 9p: diod, `cache=none`                           | 1.1.0                       | diod-9p2000l
+diod-loose           | 9p: diod, `cache=loose`                          | 1.1.0                       | diod-9p2000l
+diod-mmap            | 9p: diod, `cache=mmap`                           | 1.1.0                       | diod-9p2000l
+ganesha-9p-none      | 9p: NFS-Ganesha, `cache=none`                    | 15.8                        | nfs-ganesha-9p2000l
+ganesha-9p-loose     | 9p: NFS-Ganesha, `cache=loose`                   | 15.8                        | nfs-ganesha-9p2000l
+ganesha-9p-mmap      | 9p: NFS-Ganesha, `cache=mmap`                    | 15.8                        | nfs-ganesha-9p2000l

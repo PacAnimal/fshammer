@@ -9,6 +9,11 @@ knfsd-v4-lock-two-mounts         knfsd-v4.2     reproduced      nfs-lock-two-mou
 knfsd-v4-lock-two-clients        knfsd-v4.2-2client  not-reproduced  nfs-lock-two-mounts.sh knfsd 4.2 2client
 ganesha-v4-lock-two-mounts       ganesha-v4.2   not-reproduced  nfs-lock-two-mounts.sh ganesha 4.2 same
 ganesha-v4-lock-two-clients      ganesha-v4.2-2client  not-reproduced  nfs-lock-two-mounts.sh ganesha 4.2 2client
+ganesha-v4.1-lock-contention     ganesha-v4.1   reproduced      nfs-lock-contention.sh ganesha 4.1
+ganesha-v4.2-lock-contention     ganesha-v4.2   reproduced      nfs-lock-contention.sh ganesha 4.2
+knfsd-v4.2-lock-contention       knfsd-v4.2     not-reproduced  nfs-lock-contention.sh knfsd 4.2
+ganesha-v3-lock                  ganesha-v3     reproduced      nfs-v3-lock.sh ganesha
+knfsd-v3-lock                    knfsd-v3       not-reproduced  nfs-v3-lock.sh knfsd
 rclone-truncate-grow             rclone         reproduced      rclone-truncate-grow.sh
 rclone-rename-over-open          rclone         reproduced      rclone-rename-over-open.sh
 9p-locks-9p2000                  u9fs-none      reproduced      9p-locks-9p2000.sh
@@ -22,3 +27,10 @@ diod-rename-open-none            diod-none      reproduced      9p-rename-open.s
 diod-rename-open-loose           diod-loose     reproduced      9p-rename-open.sh diod loose
 diod-ubuntu-rename-open-none     diod-none      not-reproduced  9p-rename-open.sh diod-ubuntu none
 diod-ubuntu-rename-open-loose    diod-loose     not-reproduced  9p-rename-open.sh diod-ubuntu loose
+# the same client and cache modes against NFS-Ganesha's 9P server, for comparison with diod and u9fs
+9p-append-ganesha-none           ganesha-9p-none   not-reproduced  9p-append.sh ganesha none
+9p-append-ganesha-loose          ganesha-9p-loose  not-reproduced  9p-append.sh ganesha loose
+9p-append-ganesha-mmap           ganesha-9p-mmap   not-reproduced  9p-append.sh ganesha mmap
+9p-stat-during-append-ganesha    ganesha-9p-mmap   not-reproduced  9p-stat-during-append.sh ganesha
+9p-unlink-open-ganesha           ganesha-9p-none   not-reproduced  9p-unlink-open.sh ganesha
+9p-rename-open-ganesha           ganesha-9p-none   not-reproduced  9p-rename-open.sh ganesha none
