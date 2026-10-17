@@ -1,0 +1,38 @@
+name: Showcase
+
+# fshammer against real filesystems, each required to produce the outcome recorded in
+# scripts/showcase/run.sh. A job going red means that outcome changed and the record needs updating.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "assert: require the recorded outcome. record: run each target three times and print the FAIL lines common to all three"
+        type: choice
+        options: [assert, record]
+        default: assert
+
+jobs:
+  showcase:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    # record mode runs each target three times
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [tmpfs, davfs2, davfs2-declared, sshfs, bindfs, bindfs-single, rclone,
+                 samba, knfsd-v3, knfsd-v4.2, ganesha-v4.1,
+                 u9fs-none, u9fs-mmap, diod-none, diod-loose, diod-mmap]
+    steps:
+      - uses: actions/checkout@v7
+      - run: scripts/showcase/run.sh ${{ matrix.target }}
+        env:
+          SHOWCASE_LOG: ${{ runner.temp }}/log
+          SHOWCASE_MODE: ${{ inputs.mode || 'assert' }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: showcase-${{ matrix.target }}
+          path: ${{ runner.temp }}/log
+          if-no-files-found: ignore
