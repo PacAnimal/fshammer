@@ -15,6 +15,10 @@ on:
         type: choice
         options: [assert, record]
         default: assert
+      only:
+        description: "space-separated target and reproducer names to run; empty runs everything"
+        type: string
+        default: ""
 
 jobs:
   showcase:
@@ -25,12 +29,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [tmpfs, ext4, xfs, btrfs, overlayfs, davfs2, sshfs, bindfs, bindfs-single, rclone,
+        target: [tmpfs, ext4, xfs, btrfs, overlayfs, davfs2, davfs2-ubuntu, sshfs, bindfs, bindfs-single, rclone,
                  samba, knfsd-v3, knfsd-v4.2, ganesha-v4.1,
                  u9fs-none, u9fs-mmap, diod-none, diod-loose, diod-mmap]
     steps:
       - uses: actions/checkout@v7
-      - run: scripts/showcase/run.sh ${{ matrix.target }}
+        if: inputs.only == '' || contains(format(' {0} ', inputs.only), format(' {0} ', matrix.target))
+      - if: inputs.only == '' || contains(format(' {0} ', inputs.only), format(' {0} ', matrix.target))
+        run: scripts/showcase/run.sh ${{ matrix.target }}
         env:
           SHOWCASE_LOG: ${{ runner.temp }}/log
           SHOWCASE_MODE: ${{ inputs.mode || 'assert' }}
@@ -49,14 +55,17 @@ jobs:
       fail-fast: false
       matrix:
         repro: ["davfs2-readdir", "davfs2-utime-before-close", "samba-hardlink", "samba-utime-before-close",
-                "knfsd-v4-lock-two-mounts", "sshfs-readdir-inode", "bindfs-hardlink",
+                "knfsd-v4-lock-two-mounts", "sshfs-readdir-inode", "sshfs-readdir-inode readdir_ino",
+                "bindfs-hardlink", "bindfs-hardlink 2", "bindfs-hardlink 0 -o attr_timeout=0",
                 "rclone-truncate-grow", "rclone-rename-over-open",
-                "9p-locks-9p2000", "9p-unlink-open u9fs", "9p-unlink-open diod", "9p-rename-errno",
-                "9p-append u9fs none", "9p-append diod loose", "9p-append diod mmap",
+                "9p-locks-9p2000", "9p-unlink-open u9fs", "9p-unlink-open diod", "u9fs-rename-at-root",
+                "9p-append u9fs none", "9p-append diod none", "9p-append diod loose", "9p-append diod mmap",
                 "9p-stat-during-append u9fs", "9p-rename-dir-loose"]
     steps:
       - uses: actions/checkout@v7
-      - run: |
+        if: inputs.only == '' || contains(format(' {0} ', inputs.only), format(' {0} ', matrix.repro))
+      - if: inputs.only == '' || contains(format(' {0} ', inputs.only), format(' {0} ', matrix.repro))
+        run: |
           echo "kernel: $(uname -r)"
           set -- ${{ matrix.repro }}
           script="$1"; shift
@@ -65,7 +74,7 @@ jobs:
   # badge JSON per target and a summary, force-pushed as one commit to the orphan "status" branch
   status:
     needs: showcase
-    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'assert')
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || (inputs.mode == 'assert' && inputs.only == ''))
     runs-on: ubuntu-24.04
     permissions:
       contents: write

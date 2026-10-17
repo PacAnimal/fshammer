@@ -4,32 +4,45 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fshammer"
-version = "1.0.0"
+dynamic = ["version"]
 description = "A concurrent filesystem workload, verified against an in-memory model of the files it writes"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "PacAnimal" }]
+maintainers = [{ name = "PacAnimal" }]
 requires-python = ">=3.12"
 keywords = ["filesystem", "stress-test", "nfs", "fuse", "webdav", "smb", "9p", "posix", "data-integrity"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Testing",
     "Topic :: System :: Filesystems",
 ]
 
 [project.urls]
 Homepage = "https://github.com/PacAnimal/fshammer"
+Source = "https://github.com/PacAnimal/fshammer"
 Issues = "https://github.com/PacAnimal/fshammer/issues"
+Changelog = "https://github.com/PacAnimal/fshammer/blob/main/CHANGELOG.md"
 
 [project.scripts]
 fshammer = "fshammer:main"
 
 [tool.setuptools]
 py-modules = ["fshammer"]
+
+[tool.setuptools.dynamic]
+version = { attr = "fshammer.__version__" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

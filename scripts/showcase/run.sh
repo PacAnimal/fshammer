@@ -17,10 +17,11 @@ case "$target" in
     xfs)             pkgs=(xfsprogs);                  mounts="$("$here/localfs.sh" xfs)" ;;
     btrfs)           pkgs=(btrfs-progs);               mounts="$("$here/localfs.sh" btrfs)" ;;
     overlayfs)       pkgs=();                          mounts="$("$here/overlayfs.sh")" ;;
-    davfs2)          pkgs=(davfs2 apache2);            mounts="$("$here/davfs2.sh")" ;;
-    sshfs)           pkgs=(sshfs openssh-server);      mounts="$("$here/sshfs.sh")" ;;
-    bindfs)          pkgs=(bindfs fuse3);              mounts="$("$here/bindfs.sh")" ;;
-    bindfs-single)   pkgs=(bindfs fuse3);              mounts="$("$here/bindfs.sh" | cut -d' ' -f1)" ;;
+    davfs2)          pkgs=(apache2);                   mounts="$("$here/davfs2.sh" upstream)" ;;
+    davfs2-ubuntu)   pkgs=(davfs2 apache2);            mounts="$("$here/davfs2.sh" ubuntu)" ;;
+    sshfs)           pkgs=(openssh-server);            mounts="$("$here/sshfs.sh")" ;;
+    bindfs)          pkgs=();                          mounts="$("$here/bindfs.sh")" ;;
+    bindfs-single)   pkgs=();                          mounts="$("$here/bindfs.sh" | cut -d' ' -f1)" ;;
     rclone)          pkgs=();                          mounts="$("$here/rclone.sh" writes)" ;;
     samba)           pkgs=(samba cifs-utils);          mounts="$("$here/samba.sh")" ;;
     knfsd-v3)        pkgs=(nfs-kernel-server);         mounts="$("$here/knfsd.sh" 3)" ;;
@@ -28,14 +29,16 @@ case "$target" in
     ganesha-v4.1)    pkgs=(nfs-ganesha);               mounts="$("$here/ganesha.sh" 4.1)" ;;
     u9fs-none)       pkgs=();                          mounts="$("$here/v9fs.sh" u9fs none 1)" ;;
     u9fs-mmap)       pkgs=();                          mounts="$("$here/v9fs.sh" u9fs mmap 1)" ;;
-    diod-none)       pkgs=(diod);                      mounts="$("$here/v9fs.sh" diod none 1)" ;;
-    diod-loose)      pkgs=(diod);                      mounts="$("$here/v9fs.sh" diod loose 1)" ;;
-    diod-mmap)       pkgs=(diod);                      mounts="$("$here/v9fs.sh" diod mmap 1)" ;;
+    diod-none)       pkgs=();                          mounts="$("$here/v9fs.sh" diod none 1)" ;;
+    diod-loose)      pkgs=();                          mounts="$("$here/v9fs.sh" diod loose 1)" ;;
+    diod-mmap)       pkgs=();                          mounts="$("$here/v9fs.sh" diod mmap 1)" ;;
     *)               echo "unknown target: $target" >&2; exit 2 ;;
 esac
 
 echo "kernel: $(uname -r)"
-if [ ${#pkgs[@]} -gt 0 ]; then dpkg-query -W -f '${Package} ${Version}\n' "${pkgs[@]}"; fi
+if [ ${#pkgs[@]} -gt 0 ]; then dpkg-query -W -f '${Package} ${Version} (Ubuntu package)\n' "${pkgs[@]}"; fi
+# built from upstream releases by build.sh
+if [ -d /usr/local/share/showcase ]; then ls /usr/local/share/showcase | sed 's/$/ (upstream release)/'; fi
 if command -v rclone >/dev/null; then rclone version | head -1; fi
 
 # a fresh directory under each mount; the second mount, when there is one, is --alt-dir, and a third field

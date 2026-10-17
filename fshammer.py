@@ -11,6 +11,8 @@ observer, shared. See https://github.com/PacAnimal/fshammer for what each checks
 # lets signatures name types defined further down, on every supported Python
 from __future__ import annotations
 
+__version__ = "1.0.0"
+
 import argparse, binascii, errno, hashlib, mmap, os, queue, random, shutil, stat, struct, subprocess, sys, time, traceback
 from dataclasses import dataclass, field
 from multiprocessing import Pipe, Process, Queue
@@ -5022,6 +5024,7 @@ def main() -> int:
                "refused, and other programs on that filesystem get 'No space left on device' until it deletes\n"
                "its filler. Files are deleted after a run with no failures; a failed or interrupted run leaves\n"
                "them.")
+    ap.add_argument("--version", action="version", version=f"fshammer {__version__}")
     ap.add_argument("--dir", required=True, help="directory to run in. Must be empty or absent (lost+found is ignored). After a run "
                          "with no failures, every entry in it except lost+found is deleted; see --keep.")
     ap.add_argument("--fill-budget", type=int, default=None, metavar="BYTES",

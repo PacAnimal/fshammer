@@ -1,8 +1,9 @@
 #!/bin/sh
 # sshfs: the inode number in a directory listing differs from the one stat() returns for the same file.
+# Usage: sshfs-readdir-inode.sh [sshfs -o options, e.g. readdir_ino]
 set -eu
 read -r a _ <<EOT
-$("$(dirname "$0")/../sshfs.sh" | tail -n 1)
+$("$(dirname "$0")/../sshfs.sh" "${1:-}" | tail -n 1)
 EOT
 python3 - "$a/ino-$$" <<'PY'
 import os, sys
