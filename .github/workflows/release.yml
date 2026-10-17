@@ -1,0 +1,49 @@
+name: Release
+
+# Pushing a tag v<version> builds the sdist and wheel, checks them, and publishes to PyPI through trusted
+# publishing (no API token). The tag must match fshammer.__version__.
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install build twine
+      - name: tag matches version
+        run: |
+          version="$(python -c 'import fshammer; print(fshammer.__version__)')"
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME does not match version $version" >&2; exit 1; }
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - name: the wheel installs and runs
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install dist/*.whl
+          "$RUNNER_TEMP/venv/bin/fshammer" --version
+          "$RUNNER_TEMP/venv/bin/fshammer" --dir "$RUNNER_TEMP/run" --duration 0 --procs 2
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/fshammer/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@v1.14.2
