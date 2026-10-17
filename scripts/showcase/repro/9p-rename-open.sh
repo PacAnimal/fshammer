@@ -1,6 +1,7 @@
 #!/bin/sh
-# Linux 9p client with diod: after a file held open is renamed, fstat() on the descriptor fails with ENOENT,
-# and after a new file is created at the old name, writes through the descriptor land in the new file.
+# diod 1.1.0: a file held open is renamed and a new file created at the old name, as logrotate does. With
+# cache=none, fstat() on the descriptor then fails with ENOENT; with cache=loose, reading the renamed file fails
+# with ENODATA. diod 1.0.24 handles both.
 # Usage: 9p-rename-open.sh <diod|diod-ubuntu|u9fs> <none|loose|mmap>
 set -eu
 dir="$("$(dirname "$0")/../v9fs.sh" "$1" "$2" 1 | tail -n 1 | cut -d' ' -f1)"
@@ -21,12 +22,16 @@ except OSError as e:
 open(log, "wb").close()                       # and creates a new, empty file at the old name
 os.write(fd, b"B" * 100)                      # the daemon keeps writing to the file it has open
 os.close(fd)
-with open(rotated, "rb") as fh:
-    old = len(fh.read())
-with open(log, "rb") as fh:
-    new = len(fh.read())
+def size(path):
+    try:
+        with open(path, "rb") as fh:
+            return len(fh.read())
+    except OSError as e:
+        problems.append(f"reading {os.path.basename(path)} failed: {e}")
+        return None
+old, new = size(rotated), size(log)
 print(f"renamed file: {old} bytes (expected 200); new file at the old name: {new} bytes (expected 0)")
-if old != 200 or new != 0:
+if old is not None and new is not None and (old != 200 or new != 0):
     problems.append("writes through the descriptor did not land in the renamed file")
 if problems:
     print("REPRODUCED: " + "; ".join(problems))

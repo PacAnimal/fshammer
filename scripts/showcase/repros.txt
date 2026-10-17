@@ -18,4 +18,4 @@ u9fs-rename-at-root              u9fs-none      reproduced      u9fs-rename-at-r
 diod-rename-open-none            diod-none      reproduced      9p-rename-open.sh diod none
 diod-rename-open-loose           diod-loose     reproduced      9p-rename-open.sh diod loose
 diod-ubuntu-rename-open-none     diod-none      not-reproduced  9p-rename-open.sh diod-ubuntu none
-sshfs-readlink                   sshfs          reproduced      sshfs-readlink.sh
+diod-ubuntu-rename-open-loose    diod-loose     not-reproduced  9p-rename-open.sh diod-ubuntu loose
