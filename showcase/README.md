@@ -345,9 +345,12 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   directories with length 0 (`u9fs.c`, `fidstat`) (`inode/directory_size_is_usable`).
 - **Limitation:** u9fs stores a tab in a name as `\09`, as its manual page documents
   (`namespace/hostile_names`).
-- **Not established (`cache=mmap`):** in one run, all four writers stopped making progress after the
-  `contest` phase and fshammer did not finish within 30 minutes. When this happens the job saves each
-  process's state, kernel wait channel and stack to `hang.txt` in its artifact.
+- **Not established (`cache=mmap`):** in some runs fshammer does not finish within 30 minutes. In the one
+  captured, two writers were in uninterruptible sleep in a `write()`: one in `folio_wait_writeback`, called
+  from `netfs_perform_write`, waiting for a page's writeback that did not complete; the other in
+  `netfs_start_io_write`, waiting for the first. Whether u9fs stopped answering or the client lost the reply is
+  not established; the next step is a capture of the 9P traffic. The job saves each process's state, kernel
+  wait channel and stack to `hang.txt` in its artifact.
 
 ### diod (9P2000.L)
 
