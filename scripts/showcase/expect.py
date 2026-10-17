@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
-"""Run fshammer and require a known outcome: an exit code, and lines that must appear on stderr.
+"""Run fshammer and require a recorded outcome.
 
-A showcase records how a filesystem behaves today. If that changes — a failure stops happening, or the run
-starts passing — this exits non-zero so the change is noticed and the showcase updated.
+The outcome is the set of FAIL signatures, read from an expectations file with one signature per line:
 
-    expect.py --exit 1 --stderr 'FAIL ...' [--stderr ...] --mounted /mnt/x --log DIR -- --dir /mnt/x/run --duration 0
+    FAIL locks/conflict_excludes:        must appear
+    ? FAIL shared.bin:                   may appear (seen in some recorded runs, not all)
 
-With --record N it asserts nothing: it runs fshammer N times, each in fresh directories, and prints the FAIL
-signatures that appeared in every run, for confirming a target's outcome before recording it.
+The job fails if fshammer does not finish, its exit code does not match whether it printed FAIL lines, a
+required signature is missing, or a signature appears that the file does not list.
+
+    expect.py --expected FILE --log DIR [--mounted PATH ...] -- --dir /mnt/x/run --duration 0 ...
+
+With --record N it asserts nothing: it runs fshammer N times in fresh directories, prints the signatures, and
+writes a proposed expectations file to DIR/expected.txt.
 """
 import argparse
 import os
@@ -30,18 +35,34 @@ def run(hammer_args: list[str], timeout: int) -> tuple[int | None, str, str]:
         return None, out, err
 
 
+def signature(line: str) -> str:
+    """A FAIL line up to its first ': ', comparable across runs: a path becomes its basename, digits become N."""
+    subject = line.strip().split(": ", 1)[0][len("FAIL"):].strip()
+    if subject.startswith("/"):
+        subject = os.path.basename(subject)
+    subject = re.sub(r"\d+", "N", subject)
+    return f"FAIL {subject}:" if subject else "FAIL:"
+
+
 def signatures(err: str) -> set[str]:
-    """Each FAIL line up to its first colon, with the run directory replaced, so runs can be compared."""
-    found = set()
-    for line in err.splitlines():
+    return {signature(line) for line in err.splitlines() if line.strip().startswith("FAIL")}
+
+
+def load(path: pathlib.Path) -> tuple[set[str], set[str]]:
+    required, allowed = set(), set()
+    for line in path.read_text().splitlines():
         line = line.strip()
-        if line.startswith("FAIL"):
-            found.add(re.sub(r"/run-[^/]*", "/RUN", line.split(": ", 1)[0]) + ":")
-    return found
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("?"):
+            allowed.add(line[1:].strip())
+        else:
+            required.add(line)
+    return required, allowed
 
 
 def record(args: argparse.Namespace, hammer_args: list[str]) -> int:
-    common = None
+    runs = []
     for i in range(1, args.record + 1):
         # fresh directories for each run, and the server's view of them to match
         fresh = [f"{a}-{i}" if prev in ("--dir", "--alt-dir", "--server-root") else a
@@ -51,22 +72,25 @@ def record(args: argparse.Namespace, hammer_args: list[str]) -> int:
         (args.log / f"stderr-{i}.txt").write_text(err)
         found = signatures(err)
         print(f"run {i}: exit {code}, {len(found)} FAIL signature(s)")
-        common = found if common is None else common & found
-    print("FAIL signatures in every run:")
-    for line in sorted(common or ()):
+        runs.append(found)
+    every = set.intersection(*runs)
+    some = set.union(*runs) - every
+    proposed = sorted(every) + [f"? {s}" for s in sorted(some)]
+    (args.log / "expected.txt").write_text("".join(f"{line}\n" for line in proposed))
+    print("proposed expectations:")
+    for line in proposed:
         print(f"  {line}")
     return 0
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--exit", type=int, required=True, help="the exit code fshammer must return")
-    ap.add_argument("--stderr", action="append", default=[], help="a substring that must appear on stderr; repeatable")
-    ap.add_argument("--log", type=pathlib.Path, required=True, help="where to write stdout.txt and stderr.txt")
+    ap.add_argument("--expected", type=pathlib.Path, required=True, help="the expectations file")
+    ap.add_argument("--log", type=pathlib.Path, required=True, help="where to write fshammer's stdout and stderr")
     ap.add_argument("--timeout", type=int, default=1800, help="seconds before the run is killed (default 1800)")
     ap.add_argument("--mounted", action="append", default=[], help="a path that must be a mount point; repeatable")
     ap.add_argument("--record", type=int, default=0, metavar="N",
-                    help="run N times and print the FAIL signatures common to all runs, asserting nothing")
+                    help="run N times and propose expectations, asserting nothing")
     ap.add_argument("args", nargs=argparse.REMAINDER, help="arguments for fshammer, after --")
     args = ap.parse_args()
     hammer_args = args.args[1:] if args.args[:1] == ["--"] else args.args
@@ -80,30 +104,34 @@ def main() -> int:
     args.log.mkdir(parents=True, exist_ok=True)
     if args.record:
         return record(args, hammer_args)
+
+    required, allowed = load(args.expected)
     code, out, err = run(hammer_args, args.timeout)
     (args.log / "stdout.txt").write_text(out)
     (args.log / "stderr.txt").write_text(err)
-
     print(out)
     print("FAIL lines reported:")
     for line in err.splitlines():
         if line.lstrip().startswith("FAIL"):
             print(f"  {line.strip()[:300]}")
 
+    found = signatures(err)
+    want = 1 if found else 0
     problems = []
     if code is None:
         problems.append(f"fshammer did not finish within {args.timeout}s")
-    elif code != args.exit:
-        problems.append(f"fshammer exited {code}, expected {args.exit}")
-    problems += [f"not on stderr: {wanted!r}" for wanted in args.stderr if wanted not in err]
+    elif code != want:
+        problems.append(f"fshammer exited {code}, expected {want}")
+    problems += [f"expected and missing: {s}" for s in sorted(required - found)]
+    problems += [f"not expected: {s}" for s in sorted(found - required - allowed)]
 
     print()
     if problems:
-        print("OUTCOME CHANGED — update this showcase:")
+        print(f"OUTCOME CHANGED — update {args.expected}:")
         for problem in problems:
             print(f"  {problem}")
         return 1
-    print(f"outcome as expected: exit {code}, {len(args.stderr)} expected line(s) present")
+    print(f"outcome as expected: exit {code}, {len(found)} FAIL signature(s), all listed in {args.expected.name}")
     return 0
 
 

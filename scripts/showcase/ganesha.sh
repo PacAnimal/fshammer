@@ -1,6 +1,6 @@
 #!/bin/sh
 # NFS-Ganesha (VFS FSAL) exporting a local ext4 directory, mounted twice over loopback; the second mount uses
-# nosharecache so it is a separate client instance.
+# nosharecache, so it has its own caches but shares the first mount's NFS client.
 # Usage: ganesha.sh <nfs version, e.g. 3 or 4.1>. Prints the two mount points and the exported directory.
 set -eu
 
@@ -8,6 +8,8 @@ vers="$1"
 base="${SHOWCASE_BASE:-/tmp/showcase}"
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nfs-ganesha nfs-ganesha-vfs nfs-common >/dev/null
+# the package starts its own server on install where systemd runs; this one uses its own config
+sudo systemctl stop nfs-ganesha 2>/dev/null || true
 
 export="$base/ganesha-export"
 a="$base/ganesha-$vers-a"

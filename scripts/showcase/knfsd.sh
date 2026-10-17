@@ -1,6 +1,6 @@
 #!/bin/sh
 # Linux kernel NFS server (knfsd) exporting a local directory, mounted twice over loopback; the second
-# mount uses nosharecache so it is a separate client instance.
+# mount uses nosharecache, so it has its own caches but shares the first mount's NFS client.
 # Usage: knfsd.sh <nfs version, e.g. 3 or 4.2>. Prints the two mount points and the exported directory.
 set -eu
 
@@ -8,6 +8,8 @@ vers="$1"
 base="${SHOWCASE_BASE:-/tmp/showcase}"
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nfs-kernel-server >/dev/null
+# the package starts the server on install where systemd runs; the settings below need it stopped
+sudo systemctl stop nfs-server 2>/dev/null || true
 
 export="$base/knfsd-export"
 a="$base/knfsd-$vers-a"
@@ -24,6 +26,7 @@ pgrep -x rpc.statd >/dev/null || sudo rpc.statd
 sudo exportfs -ra
 pgrep -x rpc.mountd >/dev/null || sudo rpc.mountd
 # locks are refused during the server's grace period after start; shorten it, then wait it out
+sudo rpc.nfsd 0
 echo 10 | sudo tee /proc/fs/nfsd/nfsv4gracetime /proc/fs/nfsd/nfsv4leasetime >/dev/null
 sudo sysctl -q fs.nfs.nlm_grace_period=10 2>/dev/null || true
 sudo rpc.nfsd 8

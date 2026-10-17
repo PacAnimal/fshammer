@@ -1,13 +1,13 @@
 name: Showcase
 
-# fshammer against real filesystems, each required to produce the outcome recorded in
-# scripts/showcase/run.sh. A job going red means that outcome changed and the record needs updating.
+# fshammer against real filesystems, each required to produce the outcome in scripts/showcase/expected/, and
+# a standalone reproducer for each behaviour showcase/README.md reports. A red job means an outcome changed.
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "assert: require the recorded outcome. record: run each target three times and print the FAIL lines common to all three"
+        description: "assert: require the recorded outcome. record: run each target three times and propose expectations"
         type: choice
         options: [assert, record]
         default: assert
@@ -36,3 +36,24 @@ jobs:
           name: showcase-${{ matrix.target }}
           path: ${{ runner.temp }}/log
           if-no-files-found: ignore
+
+  repro:
+    name: repro ${{ matrix.repro }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        repro: ["davfs2-readdir", "davfs2-utime-before-close", "samba-hardlink", "samba-utime-before-close",
+                "knfsd-v4-lock-two-mounts", "sshfs-readdir-inode", "bindfs-hardlink",
+                "rclone-truncate-grow", "rclone-rename-over-open",
+                "9p-locks-9p2000", "9p-unlink-open u9fs", "9p-unlink-open diod", "9p-rename-ancestor",
+                "9p-append u9fs none", "9p-append diod none", "9p-append diod loose", "9p-append diod mmap",
+                "9p-stat-during-append u9fs", "9p-rename-dir-loose"]
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          echo "kernel: $(uname -r)"
+          set -- ${{ matrix.repro }}
+          script="$1"; shift
+          scripts/showcase/repro/$script.sh "$@"

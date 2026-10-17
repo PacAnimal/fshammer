@@ -12,13 +12,14 @@ layers, overlay and encrypting filesystems.
 - It covers appends (`O_APPEND`) and reopening files that are being appended to, renames and unlinks under
   open handles, symlinks and hardlinks, `fcntl` locks, `mmap`, extended attributes, directory listings
   under mutation, racing creates and deletes on one name, and ENOSPC.
-- Every variant is attempted at least once, however short the run.
+- Every variant runs at least once, however short the run, or is reported as a `DECLARED GAP` with the reason.
 - Anything a run did not test is printed as a `DECLARED GAP` line with the reason.
 - One Python file, standard library only, Python 3.12+. Linux and macOS.
 
 > [!WARNING]
-> fshammer writes a lot of data: up to about 1.5 GB at once with the defaults. If the filesystem has less
-> than 2 GiB free, it also fills it completely on purpose, to test what happens when it runs out of space.
+> fshammer writes a lot of data: up to about 1.5 GB at once with the defaults, plus 4 GiB on a filesystem
+> without sparse files. If the filesystem has less than 2 GiB free, it also keeps writing until writes are
+> refused, on purpose, to test what happens when it runs out of space.
 > While it is full, every other program writing to that filesystem gets "No space left on device".
 > Don't point it at a filesystem your system or other users depend on. See [Disk usage](#disk-usage).
 
@@ -41,7 +42,8 @@ fshammer --dir /mnt/under-test/fshammer
 
 `--dir` must be empty or not exist (`lost+found` is ignored). After a run with no failures, everything in it
 except `lost+found` is deleted, including anything another process put there during the run; `--keep`
-leaves it. After a failed run nothing is deleted, and the directory must be emptied before the next run.
+leaves it. After a failed or interrupted run nothing is deleted, and the directory must be emptied before the
+next run.
 
 ## Output
 
@@ -55,15 +57,16 @@ locks: 256 read-modify-writes under an exclusive lock, and the counter holds exa
 malice: 73 completed across 19 variants — append_vs_truncate=4, atomic_replace=4, contended_exclusive=4, …
 …
 shared.bin: 814 blocks from 4 writers (4 via --dir, 0 via --alt-dir), 17262551 bytes acknowledged, 17262551 on disk
-fshammer: OK (13s elapsed, 0s minimum requested)
+fshammer: OK (13s elapsed, --duration 0)
 ```
 
 ```
   DECLARED GAP locks/cross_mount_excludes: no --alt-dir, so both processes would share one mount and the client's own kernel would answer instead of the store — so this shape is untested here
 ```
 
-The `name=count` entries are the variants and how many times each completed. These names are what
-`--declare-gap` takes.
+The `name=count` entries are the variants and how many times each completed. On the lines of the phases
+listed under `--declare-gap`, these are the names it takes (the `sqlite-shaped:` line is the `sqlite`
+phase).
 
 When an own-file's final hash does not match, the `FAIL` line gives the file and both sizes. While writing,
 random ranges are also read back, and a mismatch there reports the first differing offset, the operation
@@ -85,11 +88,11 @@ that wrote it, and whether the bytes were still wrong after the page cache was d
 | identity | content changed while size and mtime stay the same; mtime and ctime behaviour |
 | namespace | symlink cycles and dangling links, hardlinks, deep trees, subtree moves, case and Unicode normalisation, unusual and maximum-length names, extended attributes |
 | sqlite | database-style I/O without SQLite: ordered two-file commits, size read back after each write, shared mappings read and written |
-| publish | a set of files made visible by switching one pointer (rename, symlink, sidecar), including fsync of the directory |
+| publish | a set of files made visible by switching one pointer (rename, hard link into place, sidecar written first), including fsync of the directory |
 | inode | `(st_dev, st_ino)` is unique, and unchanged by rename, swap and subtree moves |
 | walk | directory listings checked against the files they name; each file contains its own path |
 | locks | `fcntl` locks: exclusion, shared locks, byte ranges, split unlocks, `F_GETLK`, release on close, and exclusion across two mounts |
-| contest | two operations on one name back to back (mkdir then create, rmdir then create, …): only the first may succeed, and a delete must not remove what replaced it |
+| contest | two operations on one name back to back. Two creates (mkdir then create, …): the second must fail with EEXIST. A delete then a create (rmdir then create, …): the delete must not remove what replaced it |
 | observer | `stat`, `listdir` and reads of the tail of a file while another writer appends to it |
 | shared | every writer appending to one file; each block describes itself, so loss, duplication and overwrites are found without knowing the order |
 
@@ -103,10 +106,10 @@ writers are not hit by the full disk.
 | `--dir DIR` | required | directory to run in. Must be empty or absent |
 | `--duration SECONDS` | `300` | total run time, split between phases in fixed shares. The first pass of every variant always completes, even past this; `0` = one pass. A run can end early if `shared.bin` reaches its size cap |
 | `--procs N` | `4` | concurrent writer processes. With 1, the contended variants and cross-writer checks are reported as gaps |
-| `--seed N` | `1` | seed for random choices. With `--duration 0` and the same `--procs`, each writer makes the same choices; the interleaving between writers still varies |
+| `--seed N` | `1` | seed for random choices. With `--duration 0` and the same `--procs`, each writer makes the same choices; how many operations run, and their interleaving, still depend on timing |
 | `--keep` | | keep the files after a run with no failures |
-| `--alt-dir DIR` | | the same directory through a second mount. Odd-numbered writers append to `shared.bin` and `observed.log` through it, and the cross-mount lock and publish checks use it. Needs `--procs 2` or more |
-| `--server-root DIR` | | where the server stores these files, if readable from this host. Used to tell a storage loss from a stale client cache. Only for a store that applies a write to that directory before acknowledging it; a write-behind store fails the publish ordering checks |
+| `--alt-dir DIR` | | the same directory through a second mount. Odd-numbered writers append to `shared.bin` and watch `observed.log` through it, and the cross-mount lock and publish checks use it. Needs `--procs 2` or more |
+| `--server-root DIR` | | where the server stores these files, if readable from this host. Used to tell a storage loss from a stale client cache. Only for a store where a file fsynced through the mount, with its directory fsynced, is immediately visible there with that content; a store that acknowledges fsync before applying it fails the publish checks |
 | `--crash-command CMD` | | shell command run after verification to make the store lose anything not yet durable. See [Crash testing](#crash-testing) |
 | `--pre-audit-command CMD` | | shell command run after the writers finish and before verification starts, to inject faults the verification itself should survive. A non-zero exit is a `FAIL` |
 | `--fill-budget BYTES` | 2 GiB | most the ENOSPC check writes (plus up to 64 MiB). It runs only when `statvfs` reports less free space than this |
@@ -128,9 +131,10 @@ python3 fshammer.py --dir /mnt/scratch/fsh --duration 0
 ```
 
 An NFS export mounted twice, with the server's directory readable from the client, for an hour.
-`nosharecache` makes the second mount a separate client instance; without it, Linux shares one between
-mounts of the same export, and the cross-mount checks test that one instance (fshammer reports this as a gap
-when both paths have the same `st_dev`):
+`nosharecache` gives the second mount its own data and attribute caches; without it, both paths share one
+cache and the same `st_dev`, which fshammer reports as a gap. Either way both mounts share one NFS client
+(one NFSv4 client ID and set of delegations), so the server sees one client. A two-client test needs a
+second machine or network namespace:
 
 ```sh
 mount -t nfs -o vers=3 server:/export /mnt/a
@@ -154,11 +158,13 @@ ENOSPC behaviour, on a filesystem with less than 2 GiB free:
 python3 fshammer.py --dir /mnt/small/fsh --duration 0
 ```
 
-A davfs2 WebDAV mount, excluding what that client does not support:
+A davfs2 WebDAV mount. davfs2 names its local cache files after the entry plus a 7-byte suffix, so names
+over 248 bytes fail; `sparse_far_offset` is skipped because davfs2 would upload the whole 4 GiB file. This
+still exits 1 on davfs2 1.7.0 (see [showcase/](showcase/)):
 
 ```sh
-python3 fshammer.py --dir /mnt/dav/fsh --duration 0 --max-name-length 200 --no-lock --no-map \
-    --declare-gap shared --declare-gap inode --declare-gap malice/sparse_far_offset
+python3 fshammer.py --dir /mnt/dav/fsh --duration 0 --max-name-length 248 \
+    --declare-gap malice/unlink_open --declare-gap malice/sparse_far_offset
 ```
 
 ## Disk usage
