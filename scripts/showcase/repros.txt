@@ -23,7 +23,6 @@ u9fs-rename-at-root              u9fs-none      reproduced      u9fs-rename-at-r
 9p-append-diod-loose             diod-loose     reproduced      9p-append.sh diod loose
 9p-append-diod-mmap              diod-mmap      reproduced      9p-append.sh diod mmap
 9p-stat-during-append-u9fs       u9fs-mmap      reproduced      9p-stat-during-append.sh u9fs
-9p-stat-during-append-diod       diod-mmap      reproduced      9p-stat-during-append.sh diod
 diod-rename-open-mmap            diod-mmap      reproduced      9p-rename-open.sh diod mmap
 diod-rename-open-none            diod-none      reproduced      9p-rename-open.sh diod none
 diod-rename-open-loose           diod-loose     reproduced      9p-rename-open.sh diod loose

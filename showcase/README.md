@@ -109,7 +109,7 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [9p: u9fs, `cache=mmap`](#u9fs-9p2000) | `fcec3e1` | 14, 1 optional; may not finish | 1 |  |
 | [9p: diod, `cache=none`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 1 | 1 |
 | [9p: diod, `cache=loose`](#diod-9p2000l) | 1.1.0 | 7, 3 optional | 2 | 1 |
-| [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 3 |  |
+| [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 2 |  |
 | [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 | 15 | 1 |  |
 | [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 | 15 |  |  |
 | [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 | 15 |  |  |
@@ -250,7 +250,10 @@ echo '/mnt/dav "" ""' >> /etc/davfs2/secrets
 ```
 
 - **Likely defect (davfs2 1.7.3):** a file written, given an mtime with `utime()`, and closed reads back empty
-  straight after `close()` (`identity/utimes_survives_the_flush`).
+  straight after `close()` (`identity/utimes_survives_the_flush`); read again 15 seconds later it has its
+  4096 bytes. The read is answered by davfs2 itself: in Apache's access log for the file, the only request
+  before the empty read is a `LOCK`; the `PUT` follows 11 seconds later, and the only `GET` is the later
+  re-read. The reproducer prints that log.
   [`davfs2-utime-before-close.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/davfs2-utime-before-close.sh):
 
   ```python
@@ -466,10 +469,10 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
   receives the same appends and nothing is lost, which points at the client; it has not been compared with
   another 9P2000.L server, so diod is not ruled out.
   [`9p-append.sh diod loose`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-append.sh).
-- **Likely defect (Linux 9p client, `cache=mmap`):** a file appended to while another process calls `stat()`
-  on it loses or tears blocks (`observed.log`, in some runs). `v9fs_vfs_getattr_dotl` has the same sequence as
-  the 9P2000 path described for u9fs above.
-  [`9p-stat-during-append.sh diod`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-stat-during-append.sh).
+- **Not established (`cache=mmap`):** in some runs `observed.log`, appended to while other processes call
+  `stat()` on it, loses or tears blocks. `v9fs_vfs_getattr_dotl` has the same sequence as the 9P2000 path
+  described for u9fs above, but `9p-stat-during-append.sh`, which reproduces it with u9fs, wrote all 13107200
+  bytes with diod.
 - **Limitation:** diod implements POSIX locks with whole-file `flock()` (`diod_ops.c`: "Implement POSIX locks
   in terms of BSD flock locks"), so byte ranges, shared locks and `F_GETLK` do not behave as POSIX describes
   (`locks/*`). Which of the lock checks fail varies between runs.
