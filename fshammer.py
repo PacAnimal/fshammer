@@ -63,8 +63,8 @@ DOWNLOAD_BUFFER = 32768
 DOWNLOAD_CHUNK = 4096 * 16          # one open-write-close per ranged request
 PART_MODE = 0o600
 DONE_MODE = 0o666                   # narrowed by the umask
-# where the "production" flavour closes and reopens: mid-buffer, off every power of two
-PRODUCTION_STOP = 287 * DOWNLOAD_BUFFER + 4096
+# where the "full_sequence" flavour closes and reopens: mid-buffer, off every power of two
+REOPEN_AT = 287 * DOWNLOAD_BUFFER + 4096
 DOWNLOAD_SLOTS = 3                   # downloads in flight per writer
 DOWNLOAD_TMPDIR = "dltmp"            # where a .part starts when downloads are staged in a temp dir
 
@@ -80,8 +80,8 @@ def download_move(src: str, dst: str):
         os.unlink(src)
 
 
-# cycled in order; "production" is a downloader's full sequence, including the mid-download reopen
-DOWNLOAD_FLAVOURS = ["production", "resume", "retarget", "oneshot", "chunked"]
+# cycled in order; "full_sequence" is a downloader's whole call sequence, including the mid-download reopen
+DOWNLOAD_FLAVOURS = ["full_sequence", "resume", "retarget", "oneshot", "chunked"]
 
 # read so a finished download can be checked against the mode it really ends up with
 UMASK = os.umask(0o022)
@@ -250,7 +250,7 @@ def hammer_own(directory: str, writer: int, deadline: float, rng: random.Random,
                 check(path, fd, "1-byte dribble")
 
             elif kind == "bulk":
-                # multi-megabyte appends, several times the server's 10 MiB coalescing cap
+                # multi-megabyte appends, several times a 10 MiB write-behind boundary some clients and servers use
                 append(path, fd, payload(f"{writer}:{op}:b".encode(), rng.choice([4 << 20, 11 << 20, 24 << 20])))
                 check(path, fd, "bulk append")
 
@@ -363,7 +363,7 @@ def hammer_own(directory: str, writer: int, deadline: float, rng: random.Random,
                 finally:
                     os.close(rfd)
                 if got != want:
-                    at = next((i for i in range(min(len(got), len(want))) if got[i] != want[i]), 0)
+                    at = next((i for i in range(min(len(got), len(want))) if got[i] != want[i]), min(len(got), len(want)))
                     bad = off + at
                     # drop the page cache and re-read: correct now means the client cache was wrong; still
                     # wrong means the bytes are not stored
@@ -564,10 +564,10 @@ class DownloadPlan:
 
 
 def download_plan(flavour: str, rng: random.Random) -> DownloadPlan:
-    if flavour == "production":
+    if flavour == "full_sequence":
         # the residual close at 9408512, then more buffers on a reopened append fd, past 11 MiB
-        return DownloadPlan(PRODUCTION_STOP + rng.choice([64, 96, 128]) * DOWNLOAD_BUFFER + 4096,
-                            [PRODUCTION_STOP])
+        return DownloadPlan(REOPEN_AT + rng.choice([64, 96, 128]) * DOWNLOAD_BUFFER + 4096,
+                            [REOPEN_AT])
     if flavour == "resume":
         # paused on a buffer boundary and off one; the resumed append must start at the agreed offset
         return DownloadPlan(rng.choice([40, 72, 96]) * DOWNLOAD_BUFFER + rng.choice([0, 777, 4096]),
@@ -763,7 +763,7 @@ def hammer_download(directory: str, writer: int, deadline: float, rng: random.Ra
 # name and the handle must not see it; unlink it and the handle keeps its bytes. Refusals a protocol may make
 # (hard links, EXDEV) are gaps; a variant that never completes is reported.
 MALICE_PIECE = 16 << 10                 # a torrent client's piece
-MALICE_SPAN = 24 << 20                  # crosses the server's 10 MiB coalescing cap twice
+MALICE_SPAN = 24 << 20                  # crosses a 10 MiB write-behind boundary twice
 MALICE_HOT_FILES = 20                   # open at once, round-robin, so per-handle state is under pressure
 MALICE_HELD_FDS = 8                     # held across an enumeration — fewer than the names below, on purpose
 MALICE_ENUMERATION_NAMES = 256          # names to enumerate past them: a listing that dwarfs what is open
@@ -1835,8 +1835,13 @@ def hammer_namespace(directory: str, writer: int, deadline: float,
                     if not stat.S_ISREG(os.lstat(path).st_mode):
                         raise AssertionError(f"{hostile!r}: is not a regular file")
 
-                    # and it survives being renamed to another awkward name and back
-                    other = os.path.join(yard, f" .{hostile}. ")
+                    # and it survives being renamed to another awkward name and back, within the cap
+                    padded = f" .{hostile}. "
+                    if len(padded.encode()) > MAX_NAME_LENGTH:
+                        os.unlink(path)
+                        carried += 1
+                        continue
+                    other = os.path.join(yard, padded)
                     try:
                         os.rename(path, other)
                     except OSError as e:
@@ -4813,7 +4818,7 @@ def declared_gap(phase: str, variant: "str | None" = None) -> bool:
 
 
 # most the ENOSPC check will write; with more free space than this it reports a gap instead
-FILL_BUDGET = int(os.environ.get("FSHAMMER_FILL_BUDGET") or (2 << 30))
+FILL_BUDGET = 2 << 30
 
 
 def server_size_verdict(path: str) -> str:
@@ -4995,7 +5000,12 @@ def main() -> int:
         epilog="exit 0 = no FAIL lines. Each DECLARED GAP line on stderr is something the run did not test.\n"
                "exit 1 = at least one FAIL line on stderr, or every writer died without reporting.\n"
                "exit 2 = invalid invocation: bad arguments, a non-empty --dir, or an --alt-dir that is not\n"
-               "the same directory as --dir.")
+               "the same directory as --dir.\n\n"
+               "Disk use: about 1.5 GB at once with the defaults (plus 4 GiB on a filesystem without sparse\n"
+               "files and at least 5 GiB free). If less than --fill-budget is free, it writes until writes are\n"
+               "refused, and other programs on that filesystem get 'No space left on device' until it deletes\n"
+               "its filler. Files are deleted after a run with no failures; a failed or interrupted run leaves\n"
+               "them.")
     ap.add_argument("--dir", required=True, help="directory to run in. Must be empty or absent (lost+found is ignored). After a run "
                          "with no failures, every entry in it except lost+found is deleted; see --keep.")
     ap.add_argument("--fill-budget", type=int, default=None, metavar="BYTES",
@@ -5008,22 +5018,24 @@ def main() -> int:
                          "(revoke access, remove the export, return errors). A non-zero exit is a FAIL.")
     ap.add_argument("--crash-command", default=None, metavar="CMD",
                     help="shell command that makes the store lose anything it has not made durable: kill and "
-                         "restart the server, power-cycle or force-unmount the device. Run once after "
+                         "restart the server, or force-unmount and remount. It must leave the filesystem mounted "
+                         "at the same path when it returns. Run once after "
                          "verification; every own-file and download, and their directories, are fsynced first "
                          "and re-read and hashed after. Skipped if the run already failed.")
     # separate processes on one mount share one client session; a second mount is a second session
     ap.add_argument("--alt-dir", default=None,
-                    help="the same directory through a second mount. Odd-numbered writers use it for shared.bin "
-                         "and observed.log, and the cross-mount lock and publish checks use it. For NFS, mount "
-                         "it with nosharecache, or both mounts share one client instance.")
+                    help="the same directory through a second mount. Odd-numbered writers append to shared.bin "
+                         "and watch observed.log through it, and the cross-mount lock and publish checks use it. "
+                         "Two NFS mounts of one server share one NFS client even with nosharecache, so the "
+                         "server sees a single client.")
     # reads the server's own copy, around the client cache. Only valid for a store that applies a write
     # before acknowledging it: the publish phase reads here right after its rename, which a correct
     # write-behind store will not have applied yet.
     ap.add_argument("--server-root", default=None,
                     help="where the server stores these files, if readable from this host. Distinguishes a "
-                         "storage loss from a stale client cache. Only for a store that applies a write to "
-                         "that directory before acknowledging it: a write-behind store fails the publish "
-                         "ordering checks.")
+                         "storage loss from a stale client cache. Only for a store where a file fsynced through "
+                         "the mount, with its directory fsynced, is immediately visible here with that content; "
+                         "a store that acknowledges fsync before applying it fails the publish checks.")
     # for writeback-cache clients; see POSITIONAL_KINDS and hammer_own
     ap.add_argument("--single-writer-handle", action="store_true",
                     help="one write descriptor per own-file, and pwrite at end-of-file instead of "
@@ -5102,18 +5114,18 @@ def main() -> int:
     os.environ["FSHAMMER_NO_LOCK"] = "1" if args.no_lock else ""
     os.environ["FSHAMMER_MAX_NAME_LENGTH"] = str(args.max_name_length)
     if args.fill_budget is not None:
-        os.environ["FSHAMMER_FILL_BUDGET"] = str(args.fill_budget)
         globals()["FILL_BUDGET"] = args.fill_budget
+    if args.alt_dir:
+        if args.procs < 2:
+            usage_error("--alt-dir needs --procs 2 or more: only odd-numbered writers use it")
+        if os.path.realpath(args.alt_dir) == os.path.realpath(args.dir):
+            usage_error("--alt-dir is the same path as --dir; it must be the same directory through a second mount")
 
     os.makedirs(args.dir, exist_ok=True)
     # before the workload, so nothing this run created can answer the probe
     cap_was_unnecessary = MAX_NAME_LENGTH < NAME_MAX and probe_the_cap(args.dir)
     if args.alt_dir:
         os.makedirs(args.alt_dir, exist_ok=True)
-        if args.procs < 2:
-            usage_error("--alt-dir needs --procs 2 or more: only odd-numbered writers use it")
-        if os.path.realpath(args.alt_dir) == os.path.realpath(args.dir):
-            usage_error("--alt-dir is the same path as --dir; it must be the same directory through a second mount")
         require_same_export(args.dir, args.alt_dir)
 
     def shared_dir_for(w: int) -> str:
@@ -5263,8 +5275,8 @@ def main() -> int:
     failures += len(unmatched)
 
     if MAX_NAME_LENGTH < NAME_MAX:
-        print(f"  DECLARED GAP: --max-name-length {MAX_NAME_LENGTH}, so no name between "
-              f"{MAX_NAME_LENGTH + 2} and {NAME_MAX} bytes was written. Every length-sensitive shape still "
+        print(f"  DECLARED GAP: --max-name-length {MAX_NAME_LENGTH}, so apart from one probe "
+              f"before the run, no name between {MAX_NAME_LENGTH + 2} and {NAME_MAX} bytes was written. Every length-sensitive shape still "
               f"ran at {MAX_NAME_LENGTH} — a name exactly at the limit, and one byte past it that had to be "
               f"refused rather than trimmed — but NAME_MAX itself went untested, and a store that fails "
               f"only in the last few bytes of a name would not be caught by this run.", file=sys.stderr)
@@ -5470,7 +5482,7 @@ def main() -> int:
     elapsed = time.monotonic() - started_at
     if elapsed < args.duration:
         # a phase stopped on a byte cap rather than the clock
-        print(f"note: finished in {elapsed:.0f}s, short of the {args.duration}s minimum — a phase hit a "
+        print(f"note: finished in {elapsed:.0f}s, before --duration {args.duration} — a phase hit a "
               f"size cap rather than the clock")
     if not failures and not args.keep:
         for entry in os.listdir(args.dir):
@@ -5480,7 +5492,7 @@ def main() -> int:
                 except OSError as exc:
                     print(f"note: could not remove {os.path.join(args.dir, entry)}: {exc}", file=sys.stderr)
     print(f"fshammer: {'OK' if not failures else f'{failures} problem(s)'} "
-          f"({elapsed:.0f}s elapsed, {args.duration}s minimum requested)"
+          f"({elapsed:.0f}s elapsed, --duration {args.duration})"
           + ("" if not failures or args.keep else f" — files kept in {args.dir}"))
     return 1 if failures else 0
 

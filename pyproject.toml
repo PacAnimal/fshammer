@@ -1,15 +1,15 @@
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "fshammer"
 version = "1.0.0"
-description = "A concurrent filesystem workload, verified against an in-memory model of every file"
+description = "A concurrent filesystem workload, verified against an in-memory model of the files it writes"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
-keywords = ["filesystem", "stress-test", "nfs", "fuse", "webdav", "posix", "data-integrity"]
+keywords = ["filesystem", "stress-test", "nfs", "fuse", "webdav", "smb", "9p", "posix", "data-integrity"]
 classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
