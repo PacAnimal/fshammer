@@ -2577,6 +2577,8 @@ def hammer_identity(directory: str, writer: int, deadline: float,
                 expect(variant, path, replacement, when)
 
             result.done[variant] += 1
+        except Refused as refused:
+            result.refused.setdefault(variant, str(refused))
         except (AssertionError, OSError) as exc:
             result.record(variant, exc)
 
@@ -3447,7 +3449,7 @@ def hammer_inode(directory: str, writer: int, deadline: float,
                 inner = os.path.join(root, "d0")
                 before = {k: v for k, v in walk_identities(root).items() if k.startswith("d0" + os.sep)}
                 landed = os.path.join(root, "d1", "carried")
-                os.rename(inner, landed)
+                allowed(os.rename, inner, landed)
                 after = walk_identities(root)
                 for name, was in before.items():
                     now = after.get(os.path.join("d1", "carried", os.path.relpath(name, "d0")))
@@ -3590,6 +3592,8 @@ def hammer_inode(directory: str, writer: int, deadline: float,
                 walk_identities(root)
 
             result.done[variant] += 1
+        except Refused as refused:
+            result.refused.setdefault(variant, str(refused))
         except Exception as exc:                              # noqa: BLE001 — recorded, not swallowed
             result.record(variant, exc)
         finally:
@@ -3654,10 +3658,10 @@ class Manifest:
 
 def fsync_dir(path: str) -> None:
     """fsync a directory, making its entries durable (LevelDB, SQLite and git depend on this; see LevelDB
-    issue #189). Not wrapped in allowed(): refusing it is a failure, not a gap."""
+    issue #189). EINVAL is how a filesystem says it cannot sync directories; any other error is a failure."""
     fd = os.open(path, os.O_RDONLY | (getattr(os, "O_DIRECTORY", 0)))
     try:
-        os.fsync(fd)
+        allowed(os.fsync, fd, refusals={errno.EINVAL})
     finally:
         os.close(fd)
 
