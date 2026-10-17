@@ -14,8 +14,6 @@ args=(--duration 0 --procs 4 --seed 1)
 case "$target" in
     tmpfs)           pkgs=();                          mounts="$("$here/tmpfs.sh")" ;;
     davfs2)          pkgs=(davfs2 apache2);            mounts="$("$here/davfs2.sh")" ;;
-    davfs2-declared) pkgs=(davfs2 apache2);            mounts="$("$here/davfs2.sh")"
-                     args+=(--max-name-length 248 --declare-gap malice/unlink_open) ;;
     sshfs)           pkgs=(sshfs openssh-server);      mounts="$("$here/sshfs.sh")" ;;
     bindfs)          pkgs=(bindfs fuse3);              mounts="$("$here/bindfs.sh")" ;;
     bindfs-single)   pkgs=(bindfs fuse3);              mounts="$("$here/bindfs.sh" | cut -d' ' -f1)" ;;

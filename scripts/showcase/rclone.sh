@@ -1,5 +1,6 @@
 #!/bin/sh
-# rclone mount of a local directory. Usage: rclone.sh writes|full. Prints the mount point.
+# rclone mount of a local directory, with symlinks enabled (--links; off by default).
+# Usage: rclone.sh writes|full. Prints the mount point.
 set -eu
 
 mode="$1"
@@ -8,6 +9,6 @@ sudo apt-get update -qq
 "$(dirname "$0")/rclone-install.sh"
 
 mkdir -p "$base/rclone-$mode-remote" "$base/rclone-$mode"
-rclone mount "$base/rclone-$mode-remote" "$base/rclone-$mode" --vfs-cache-mode "$mode" \
+rclone mount "$base/rclone-$mode-remote" "$base/rclone-$mode" --vfs-cache-mode "$mode" --links \
     --cache-dir "$base/rclone-$mode-cache" --config /dev/null --daemon --daemon-wait 30s >&2
 echo "$base/rclone-$mode"
