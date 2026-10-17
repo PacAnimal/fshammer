@@ -50,7 +50,7 @@ Apache serve a plain directory on the runner's own filesystem.
 | [bindfs](#bindfs), mounted once | bindfs 1.14.7, fuse3 3.14.0 | 1 | 1 |
 | [bindfs](#bindfs), mounted twice | as above | 3 | |
 | [rclone mount](#rclone) of a local directory | rclone v1.75.2 | 13, 1 optional | 2 |
-| [9p: u9fs](#9p), `cache=none` | u9fs at `fcec3e1` | 13, 1 optional | 4 |
+| [9p: u9fs](#9p), `cache=none` | u9fs at `fcec3e1` | 13, 2 optional | 4 |
 | [9p: u9fs](#9p), `cache=mmap` | as above | 14, 1 optional | 1 |
 | [9p: diod](#9p), `cache=none` | diod 1.0.24 | 6, 2 optional | 1 |
 | [9p: diod](#9p), `cache=loose` | as above | 10, 2 optional | 2 |
@@ -313,7 +313,7 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
 - **Limitation:** four processes appending to one file with `O_APPEND` on one mount lose bytes. 9P2000 has no
   append flag, and the client moves each descriptor to the end of the file once, when it is opened.
   [`9p-append.sh u9fs none`](../scripts/showcase/repro/9p-append.sh): 3276800 bytes reported written, 819200
-  in the file. fshammer's `shared.bin` shows this in some runs.
+  in the file. fshammer's `shared.bin` and `observed.log` show this in some runs.
 - **Not established:** a descriptor held twelve directories below a renamed directory fails `fsync()` with
   ENOENT (`namespace/deep_rename_above`).
 - **Limitation:** 9P2000 has no ctime and no link count, so ctime equals mtime and directories report

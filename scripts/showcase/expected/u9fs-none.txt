@@ -12,3 +12,4 @@ FAIL namespace/deep_rename_above:
 FAIL namespace/hostile_names:
 FAIL sqlite/mmap_write_through:
 ? FAIL shared.bin:
+? FAIL observed.log:
