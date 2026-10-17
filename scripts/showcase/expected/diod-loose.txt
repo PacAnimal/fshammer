@@ -10,3 +10,6 @@ FAIL namespace/rename_into_own_subtree:
 FAIL shared.bin:
 ? FAIL locks/shared_is_shared:
 ? FAIL locks/unlock_splits_a_range:
+# diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies
+? FAIL locks/conflict_excludes:
+? FAIL locks/exclusive_rmw:

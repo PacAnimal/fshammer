@@ -52,9 +52,9 @@ Apache serve a plain directory on the runner's own filesystem.
 | [rclone mount](#rclone) of a local directory | rclone v1.75.2 | 13, 1 optional | 2 |
 | [9p: u9fs](#9p), `cache=none` | u9fs at `fcec3e1` | 13, 2 optional | 4 |
 | [9p: u9fs](#9p), `cache=mmap` | as above | 14, 1 optional | 1 |
-| [9p: diod](#9p), `cache=none` | diod 1.0.24 | 6, 2 optional | 1 |
-| [9p: diod](#9p), `cache=loose` | as above | 10, 2 optional | 2 |
-| [9p: diod](#9p), `cache=mmap` | as above | 5, 3 optional | 1 |
+| [9p: diod](#9p), `cache=none` | diod 1.0.24 | 6, 4 optional | 1 |
+| [9p: diod](#9p), `cache=loose` | as above | 10, 4 optional | 2 |
+| [9p: diod](#9p), `cache=mmap` | as above | 5, 5 optional | 1 |
 
 Each failure below is one of:
 
@@ -342,6 +342,6 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
 
 - **Limitation:** diod implements POSIX locks with whole-file `flock()` (`diod_ops.c`: "Implement POSIX locks
   in terms of BSD flock locks"), so byte ranges, shared locks and `F_GETLK` do not behave as POSIX describes
-  (`locks/*`).
+  (`locks/*`). Which of the lock checks fail varies between runs.
 - **Not established (`cache=none`):** in `shared.bin`, blocks are overwritten by other appends, with no
   bytes lost.
