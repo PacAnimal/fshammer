@@ -3321,14 +3321,14 @@ def hammer_malice(directory: str, writer: int, deadline: float,
                     write_all(oh, body)
                     os.unlink(orphan)
 
-                    # an NFS client keeps an unlinked open file as `.nfsXXXX`, so the parent may not be empty
+                    # a network client keeps an unlinked open file under a silly-rename, so the parent may not be empty
                     try:
                         os.rmdir(sub)
                     except OSError as e:
                         if e.errno != errno.ENOTEMPTY:
                             raise
                         left = os.listdir(sub)
-                        if not any(n.startswith(".nfs") or n.startswith(".fuse_hidden") for n in left):
+                        if not any(n.startswith((".nfs", ".fuse_hidden", ".__smb")) for n in left):
                             raise AssertionError(
                                 f"{sub}: rmdir said ENOTEMPTY after its only file was unlinked, and what is "
                                 f"left is {left!r} — not a stashed open file, so the unlink did not happen")
