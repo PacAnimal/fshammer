@@ -98,7 +98,7 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [NFS-Ganesha, NFSv4.1, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 1 optional | 1 |  |
 | [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 2 optional | 1 | 1 |
 | [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.8 | 0, 2 optional |  | 1 |
-| [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12 | 2 |  |
+| [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12, 1 optional | 2 |  |
 | [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4 | 1 |  |
 | [davfs2, Ubuntu's package](#davfs2-170-ubuntu-2404) | 1.7.0 (Ubuntu) | 26, 1 optional | 1 |  |
 | [sshfs, mounted twice](#sshfs) | 3.7.6, libfuse 3.18.3 | 19 |  |  |
@@ -199,7 +199,8 @@ mount -t cifs //127.0.0.1/share /mnt/b -o vers=3.1.1,username=$USER,password=PAS
 ```
 
 - **Not established (Samba 4.19.5 or the Linux SMB3 client):** after `link(a, b)` both names report
-  `st_nlink` 2, and opening `b` fails with EINVAL (`namespace/hardlink`).
+  `st_nlink` 2, and opening `b` fails with EINVAL (`namespace/hardlink`, and `malice/negatives` in runs where
+  that variant makes a link).
   [`samba-hardlink.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/samba-hardlink.sh):
 
   ```python
