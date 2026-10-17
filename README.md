@@ -229,7 +229,7 @@ and fails if a target's `FAIL` lines change or a reproducer stops reproducing.
 | sshfs, mounted twice | 13 | 1 |
 | bindfs, mounted once / twice | 1 / 3 | 1 |
 | rclone mount of a local directory | 13 | 2 |
-| Linux 9p client with u9fs (9P2000) and diod (9P2000.L), several cache modes | 5–15 per target | 9 |
+| Linux 9p client with u9fs (9P2000) and diod (9P2000.L), several cache modes | 5–14 per target | 9 |
 
 ## Related tools
 

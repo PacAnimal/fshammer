@@ -51,7 +51,7 @@ Apache serve a plain directory on the runner's own filesystem.
 | [bindfs](#bindfs), mounted twice | as above | 3 | |
 | [rclone mount](#rclone) of a local directory | rclone v1.75.2 | 13, 1 optional | 2 |
 | [9p: u9fs](#9p), `cache=none` | u9fs at `fcec3e1` | 13, 1 optional | 4 |
-| [9p: u9fs](#9p), `cache=mmap` | as above | 15 | 1 |
+| [9p: u9fs](#9p), `cache=mmap` | as above | 14, 1 optional | 1 |
 | [9p: diod](#9p), `cache=none` | diod 1.0.24 | 6, 2 optional | 1 |
 | [9p: diod](#9p), `cache=loose` | as above | 10, 2 optional | 2 |
 | [9p: diod](#9p), `cache=mmap` | as above | 5, 3 optional | 1 |

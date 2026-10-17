@@ -11,5 +11,5 @@ FAIL malice/unlink_open:
 FAIL namespace/deep_rename_above:
 FAIL namespace/hostile_names:
 FAIL observed.log:
-FAIL shared.bin:
 FAIL sqlite/mmap_write_through:
+? FAIL shared.bin:
