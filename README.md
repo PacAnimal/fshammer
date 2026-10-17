@@ -213,23 +213,34 @@ gap.
 
 ## Showcase
 
-[showcase/](showcase/) records what fshammer reports against filesystems set up on a GitHub runner: kernel
-NFS and NFS-Ganesha, Samba with the Linux SMB3 client, davfs2, sshfs, bindfs, rclone, and the Linux 9p client
-with u9fs and diod. Each failure is described there as a likely defect, a documented limitation, or not
-established, and each likely defect has a standalone reproducer that does not use fshammer. The
-[Showcase workflow](.github/workflows/showcase.yml) re-runs all of it on every push, weekly and on demand,
-and fails if a target's `FAIL` lines change or a reproducer stops reproducing.
+[![Showcase](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml/badge.svg)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml)
 
-| Target | `FAIL` lines | Reproducers |
+fshammer against filesystems set up on a GitHub runner, re-run on every push and weekly. Each badge shows
+the latest run: `passes`, `N failures` or `did not finish` when that matches the recorded outcome, and
+`changed` or `setup failed` when it does not. Each failure, and a standalone reproducer for each likely
+defect, is described in [showcase/](showcase/).
+
+| Target | Status | What fails |
 |---|---|---|
-| tmpfs, mounted twice (control) | 0 | |
-| knfsd NFSv3 / NFSv4.2, NFS-Ganesha NFSv4.1, each mounted twice | 0, with optional cross-mount append loss | 1 |
-| Samba, Linux SMB3 client, mounted twice | 12 | 2 |
-| davfs2 over Apache mod_dav | 26 | 2 |
-| sshfs, mounted twice | 13 | 1 |
-| bindfs, mounted once / twice | 1 / 3 | 1 |
-| rclone mount of a local directory | 13 | 2 |
-| Linux 9p client with u9fs (9P2000) and diod (9P2000.L), several cache modes | 5–14 per target | 9 |
+| tmpfs, mounted twice | [![tmpfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/tmpfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Control. |
+| ext4 on a loop image, mounted twice | [![ext4](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ext4.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Nothing. |
+| XFS on a loop image, mounted twice | [![xfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/xfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Nothing. |
+| Btrfs on a loop image, mounted twice | [![btrfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/btrfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Nothing. |
+| overlayfs over ext4, mounted twice | [![overlayfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/overlayfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Nothing. |
+| knfsd, NFSv3, mounted twice | [![knfsd-v3](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v3.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Appends through both mounts may be lost, as `open(2)` documents for NFS. |
+| knfsd, NFSv4.2, mounted twice | [![knfsd-v4.2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v4.2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | A lock held through one mount does not exclude the other (reproducer); fshammer sees it in some runs. |
+| NFS-Ganesha, NFSv4.1, mounted twice | [![ganesha-v4.1](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.1.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Appends through both mounts may be lost, as for knfsd. |
+| Samba, Linux SMB3 client | [![samba](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/samba.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | A hard link's second name cannot be opened; an mtime set before close is lost; SMB semantics. |
+| davfs2 over Apache mod_dav | [![davfs2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/davfs2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Every directory listing fails with EINVAL on this kernel; a file reads back empty after close. |
+| sshfs, mounted twice | [![sshfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/sshfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Listings and `stat()` report different inode numbers; SFTP has no ctime. |
+| bindfs, mounted once | [![bindfs-single](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/bindfs-single.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Data appended through one hard-linked name is not seen through the other. |
+| bindfs, mounted twice | [![bindfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/bindfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | As above; locks do not cross mounts. |
+| rclone mount, `--vfs-cache-mode writes` | [![rclone](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/rclone.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Growing a file with `truncate()` fails; a write through a replaced file's descriptor lands in its replacement. |
+| 9p, u9fs, `cache=none` | [![u9fs-none](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/u9fs-none.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Locks are not enforced; an unlinked open file cannot be `fstat`ed; a rename returns errno 526. |
+| 9p, u9fs, `cache=mmap` | [![u9fs-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/u9fs-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | As above, and appends are lost while another process calls `stat()`; may not finish. |
+| 9p, diod, `cache=none` | [![diod-none](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-none.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Locks are whole-file; an unlinked open file cannot be `fstat`ed. |
+| 9p, diod, `cache=loose` | [![diod-loose](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-loose.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Appends from several processes are lost; a file in a renamed directory cannot be opened. |
+| 9p, diod, `cache=mmap` | [![diod-mmap](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/diod-mmap.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Appends from several processes are lost. |
 
 ## Related tools
 

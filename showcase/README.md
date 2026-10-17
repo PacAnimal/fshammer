@@ -18,6 +18,9 @@ push to `main`, weekly, and on demand.
 - **A reproducer job** runs a script from [`scripts/showcase/repro/`](../scripts/showcase/repro) that sets up
   the target and makes a few system calls, without fshammer. It passes while the behaviour reproduces and
   fails once it no longer does.
+- After each run on `main`, a status job writes a [shields.io](https://shields.io/badges/endpoint-badge)
+  badge file per target and a `summary.json` (exit code, number of `FAIL` lines, outcome, run, kernel,
+  time) to the `status` branch; the README's table reads its badges from there.
 - Running the workflow by hand with `mode: record` runs each target three times and writes a proposed
   expectations file instead of asserting.
 
@@ -33,14 +36,20 @@ Only in a throwaway VM or container, with sudo. The setup scripts install packag
 an SSH key to `~/.ssh/authorized_keys`, set a Samba password for the current user, change NFS server grace
 and lease times, start servers, and leave everything mounted and running. Nothing is cleaned up.
 
-Samba, knfsd, NFS-Ganesha and the 9p servers export a loop-mounted ext4 image. sshfs, bindfs, rclone and
-Apache serve a plain directory on the runner's own filesystem.
+ext4, XFS and Btrfs are mounted from a sparse loop image and bind-mounted a second time; overlayfs has an
+empty lower directory and its upper directory on a loop-mounted ext4 image. Samba, knfsd, NFS-Ganesha and the
+9p servers export a loop-mounted ext4 image. sshfs, bindfs, rclone and Apache serve a plain directory on the
+runner's own filesystem.
 
 ## Results
 
 | Target | Version | `FAIL` lines | Reproducers |
 |---|---|---|---|
 | tmpfs, mounted twice (control) | kernel | 0 | |
+| ext4, mounted twice | kernel, e2fsprogs | 0 | |
+| XFS, mounted twice | kernel, xfsprogs | 0 | |
+| Btrfs, mounted twice | kernel, btrfs-progs | 0 | |
+| overlayfs over ext4, mounted twice | kernel | 0 | |
 | [knfsd, NFSv3](#knfsd-and-nfs-ganesha), mounted twice | nfs-kernel-server 2.6.4 | 0, 1 optional | |
 | [knfsd, NFSv4.2](#knfsd-and-nfs-ganesha), mounted twice | nfs-kernel-server 2.6.4 | 0, 2 optional | 1 |
 | [NFS-Ganesha, NFSv4.1](#knfsd-and-nfs-ganesha), mounted twice | nfs-ganesha 4.3 | 0, 1 optional | |
@@ -51,7 +60,7 @@ Apache serve a plain directory on the runner's own filesystem.
 | [bindfs](#bindfs), mounted twice | as above | 3 | |
 | [rclone mount](#rclone) of a local directory | rclone v1.75.2 | 13, 1 optional | 2 |
 | [9p: u9fs](#9p), `cache=none` | u9fs at `fcec3e1` | 13, 2 optional | 4 |
-| [9p: u9fs](#9p), `cache=mmap` | as above | 14, 1 optional | 1 |
+| [9p: u9fs](#9p), `cache=mmap` | as above | 14, 1 optional; may not finish | 1 |
 | [9p: diod](#9p), `cache=none` | diod 1.0.24 | 6, 4 optional | 1 |
 | [9p: diod](#9p), `cache=loose` | as above | 10, 4 optional | 2 |
 | [9p: diod](#9p), `cache=mmap` | as above | 5, 5 optional | 1 |
@@ -316,6 +325,9 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
   in the file. fshammer's `shared.bin` and `observed.log` show this in some runs.
 - **Not established:** a descriptor held twelve directories below a renamed directory fails `fsync()` with
   ENOENT (`namespace/deep_rename_above`).
+- **Not established (`cache=mmap`):** in one run, all four writers stopped making progress after the
+  `contest` phase and fshammer did not finish within 30 minutes. When this happens the job saves each
+  process's state, kernel wait channel and stack to `hang.txt` in its artifact.
 - **Limitation:** 9P2000 has no ctime and no link count, so ctime equals mtime and directories report
   `st_nlink` 2 and size 0 (`identity/ctime_is_not_just_mtime`, `inode/directory_*`).
 - **Limitation:** u9fs stores a tab in a name as `\09`, as its manual page documents
