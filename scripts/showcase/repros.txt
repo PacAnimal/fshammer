@@ -27,10 +27,4 @@ diod-rename-open-none            diod-none      reproduced      9p-rename-open.s
 diod-rename-open-loose           diod-loose     reproduced      9p-rename-open.sh diod loose
 diod-ubuntu-rename-open-none     diod-none      not-reproduced  9p-rename-open.sh diod-ubuntu none
 diod-ubuntu-rename-open-loose    diod-loose     not-reproduced  9p-rename-open.sh diod-ubuntu loose
-# the same client and cache modes against NFS-Ganesha's 9P server, for comparison with diod and u9fs
-9p-append-ganesha-none           ganesha-9p-none   not-reproduced  9p-append.sh ganesha none
-9p-append-ganesha-loose          ganesha-9p-loose  not-reproduced  9p-append.sh ganesha loose
-9p-append-ganesha-mmap           ganesha-9p-mmap   not-reproduced  9p-append.sh ganesha mmap
-9p-stat-during-append-ganesha    ganesha-9p-mmap   not-reproduced  9p-stat-during-append.sh ganesha
-9p-unlink-open-ganesha           ganesha-9p-none   not-reproduced  9p-unlink-open.sh ganesha
-9p-rename-open-ganesha           ganesha-9p-none   not-reproduced  9p-rename-open.sh ganesha none
+ganesha-9p-create                ganesha-9p-none   reproduced      ganesha-9p-create.sh

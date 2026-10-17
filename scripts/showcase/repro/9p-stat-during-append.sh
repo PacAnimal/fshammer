@@ -1,6 +1,6 @@
 #!/bin/sh
 # Linux 9p client, cache=mmap: one process appends while another stats the file; appended bytes go missing.
-# Usage: 9p-stat-during-append.sh <u9fs|diod|ganesha>
+# Usage: 9p-stat-during-append.sh <u9fs|diod>
 set -eu
 dir="$("$(dirname "$0")/../v9fs.sh" "$1" mmap 1 | tail -n 1 | cut -d' ' -f1)"
 python3 - "$dir/observed-$$.log" <<'PY'

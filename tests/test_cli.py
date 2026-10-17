@@ -75,3 +75,17 @@ def test_alt_dir_waits_for_a_name_the_other_mount_has_not_seen_yet(monkeypatch, 
     monkeypatch.setattr(fshammer.time, "sleep", lambda seconds: None)
 
     fshammer.make_alt_dir(str(tmp_path / "alt"))
+
+
+def test_a_failure_in_the_parents_enospc_check_is_reported_not_raised(tmp_path, monkeypatch):
+    """The check runs in the parent after the writers; an exception there must become a FAIL, not end the run."""
+    from conftest import fshammer
+
+    def refuse(*_args, **_kwargs):
+        raise OSError(5, "Input/output error")
+
+    result = fshammer.PhaseResult.over(("enospc_is_honest",))
+    monkeypatch.setattr(fshammer.os, "makedirs", refuse)
+    fshammer.check_enospc(str(tmp_path / "enospc"), result)
+
+    assert "enospc_is_honest" in result.failures, "the error escaped instead of being recorded"

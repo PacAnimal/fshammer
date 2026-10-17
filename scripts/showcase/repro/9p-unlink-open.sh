@@ -1,6 +1,6 @@
 #!/bin/sh
 # Linux 9p client (u9fs and diod): fstat() on an open file that has been unlinked fails with ENOENT.
-# Usage: 9p-unlink-open.sh <u9fs|diod|ganesha>
+# Usage: 9p-unlink-open.sh <u9fs|diod>
 set -eu
 dir="$("$(dirname "$0")/../v9fs.sh" "$1" none 1 | tail -n 1 | cut -d' ' -f1)"
 python3 - "$dir/unlinked-$$.bin" <<'PY'

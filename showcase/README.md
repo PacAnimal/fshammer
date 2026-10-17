@@ -88,7 +88,7 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [NFS-Ganesha, NFSv3, mounted twice on one client](#nfs-ganesha) | 15.8 | 0; may not finish | 1 |
 | [NFS-Ganesha, NFSv4.0, mounted twice on one client](#nfs-ganesha) | 15.8 | 0 |  |
 | [NFS-Ganesha, NFSv4.1, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 1 optional | 1 |
-| [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 1 optional | 2 |
+| [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 2 optional | 2 |
 | [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.8 | 0, 2 optional | 1 |
 | [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12 | 2 |
 | [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4 | 1 |
@@ -100,11 +100,11 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [9p: u9fs, `cache=none`](#u9fs-9p2000) | `fcec3e1` | 13, 1 optional | 4 |
 | [9p: u9fs, `cache=mmap`](#u9fs-9p2000) | `fcec3e1` | 14, 1 optional; may not finish | 1 |
 | [9p: diod, `cache=none`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 2 |
-| [9p: diod, `cache=loose`](#diod-9p2000l) | 1.1.0 | 7, 2 optional | 3 |
+| [9p: diod, `cache=loose`](#diod-9p2000l) | 1.1.0 | 7, 3 optional | 3 |
 | [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 1 |
-| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 | 0 | 3 |
-| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 | 0 | 1 |
-| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 | 0 | 2 |
+| [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 | 0 | 1 |
+| [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 | 0 |  |
+| [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 | 0 |  |
 <!-- /showcase-table -->
 
 Each failure below is labelled:
@@ -417,7 +417,13 @@ options as diod.
 mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER,access=user,msize=1048576,cache=loose,dfltuid=$(id -u),dfltgid=$(id -g) 127.0.0.1 /mnt/9
 ```
 
-GANESHA_9P_PLACEHOLDER
+- **Not established (NFS-Ganesha 15.8's 9P server or the Linux 9p client):** creating a file fails with EFAULT
+  ("Bad address"), and afterwards listing the directory fails with EIO; as root, `mkdir` fails with EIO too.
+  Ganesha's own debug log shows it receiving the `TLCREATE` and opening the new file, so the create reaches the
+  server and the failure is in what comes back. The server offers an `msize` of 65536. A capture of the 9P
+  traffic would show whether the `RLCREATE` reply is malformed or the client misreads it. Most of fshammer's
+  checks cannot run on this mount, so its failing checks here mostly follow from this one.
+  [`ganesha-9p-create.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/ganesha-9p-create.sh).
 
 ### diod (9P2000.L)
 
@@ -447,9 +453,11 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
   ```
 
 
-- **Likely defect (Linux 9p client, `cache=loose` and `cache=mmap`):** four processes appending to one file
-  with `O_APPEND` on one mount lose bytes `write()` reported (`shared.bin`). With a page cache the client
-  chooses the offsets it writes at; with `cache=none` diod receives the same appends and nothing is lost.
+- **Not established (the Linux 9p client's 9P2000.L path, or diod 1.1.0; `cache=loose` and `cache=mmap`):**
+  four processes appending to one file with `O_APPEND` on one mount lose bytes `write()` reported
+  (`shared.bin`). With a page cache the client chooses the offsets it writes at, and with `cache=none` diod
+  receives the same appends and nothing is lost, which points at the client; it has not been compared with
+  another 9P2000.L server, so diod is not ruled out.
   [`9p-append.sh diod loose`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-append.sh).
   With `cache=mmap`, `observed.log` also loses or tears blocks in some runs while other processes call
   `stat()` on it (optional); `v9fs_vfs_getattr_dotl` has the same sequence as the 9P2000 path described for

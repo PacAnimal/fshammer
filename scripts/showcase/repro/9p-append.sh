@@ -1,7 +1,7 @@
 #!/bin/sh
 # Linux 9p client: four processes append 4096-byte blocks to one file with O_APPEND. Every write() reports the
 # full length; the check is that the file holds all of them, each block whole.
-# Usage: 9p-append.sh <u9fs|diod|ganesha> <none|loose|mmap>
+# Usage: 9p-append.sh <u9fs|diod> <none|loose|mmap>
 set -eu
 dir="$("$(dirname "$0")/../v9fs.sh" "$1" "$2" 1 | tail -n 1 | cut -d' ' -f1)"
 python3 - "$dir/append-$$.bin" <<'PY'

@@ -4886,8 +4886,8 @@ def check_enospc(d: str, result: PhaseResult) -> None:
     """malice/enospc_is_honest, run by the parent after every writer has finished, so a full disk is not
     charged to whatever else was running."""
     variant = "enospc_is_honest"
-    os.makedirs(d, exist_ok=True)
     try:
+        os.makedirs(d, exist_ok=True)
         run_enospc(d, result, variant)
     except Exception as exc:                              # noqa: BLE001 — filed under the variant
         result.record(variant, exc)
