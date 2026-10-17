@@ -1,2 +1,1 @@
-# O_APPEND from two NFS mounts is not atomic (open(2)), so appends may or may not be lost
 ? FAIL shared.bin:

@@ -9,5 +9,11 @@ FAIL inode/unique_inodes:
 FAIL locks/cross_mount_excludes:
 FAIL namespace/hardlink:
 FAIL namespace/hostile_names:
+FAIL namespace/populated_subtree_moves:
+FAIL namespace/rename_into_own_subtree:
+FAIL namespace/symlink_cycle_abuse:
+FAIL namespace/symlink_dangling:
+FAIL namespace/symlink_into_mount:
+FAIL namespace/symlink_roundtrip:
 FAIL shared.bin:
 FAIL walk/walk_manifest:

@@ -47,33 +47,40 @@ jobs:
           path: ${{ runner.temp }}/log
           if-no-files-found: ignore
 
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      repros: ${{ steps.plan.outputs.repros }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: plan
+        run: echo "repros=$(python3 scripts/showcase/repros.py matrix "${{ inputs.only }}")" >> "$GITHUB_OUTPUT"
+
   repro:
     name: repro ${{ matrix.repro }}
+    needs: plan
+    if: needs.plan.outputs.repros != '[]'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        repro: ["davfs2-readdir", "davfs2-utime-before-close", "samba-hardlink", "samba-utime-before-close",
-                "knfsd-v4-lock-two-mounts", "sshfs-readdir-inode", "sshfs-readdir-inode readdir_ino",
-                "bindfs-hardlink", "bindfs-hardlink 2", "bindfs-hardlink 0 -o attr_timeout=0",
-                "rclone-truncate-grow", "rclone-rename-over-open",
-                "9p-locks-9p2000", "9p-unlink-open u9fs", "9p-unlink-open diod", "u9fs-rename-at-root",
-                "9p-append u9fs none", "9p-append diod none", "9p-append diod loose", "9p-append diod mmap",
-                "9p-stat-during-append u9fs", "9p-rename-dir-loose"]
+        repro: ${{ fromJSON(needs.plan.outputs.repros) }}
     steps:
       - uses: actions/checkout@v7
-        if: inputs.only == '' || contains(format(' {0} ', inputs.only), format(' {0} ', matrix.repro))
-      - if: inputs.only == '' || contains(format(' {0} ', inputs.only), format(' {0} ', matrix.repro))
-        run: |
+      - run: |
           echo "kernel: $(uname -r)"
-          set -- ${{ matrix.repro }}
-          script="$1"; shift
-          scripts/showcase/repro/$script.sh "$@"
+          scripts/showcase/repros.py run "${{ matrix.repro }}" "$RUNNER_TEMP/repro"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: repro-${{ matrix.repro }}
+          path: ${{ runner.temp }}/repro
+          if-no-files-found: ignore
 
   # badge JSON per target and a summary, force-pushed as one commit to the orphan "status" branch
   status:
-    needs: showcase
+    needs: [showcase, repro]
     if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || (inputs.mode == 'assert' && inputs.only == ''))
     runs-on: ubuntu-24.04
     permissions:
@@ -82,7 +89,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
-          pattern: showcase-*
+          pattern: "*"
           path: ${{ runner.temp }}/artifacts
       - run: |
           out="$RUNNER_TEMP/status"

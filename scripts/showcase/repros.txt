@@ -1,0 +1,21 @@
+# Standalone reproducers, one per line: id, the showcase target it belongs to, the expected outcome
+# (reproduced or not-reproduced), then the script in repro/ and its arguments.
+# A job fails when the outcome differs, so a fix upstream, or a change in the runner, shows up.
+davfs2-ubuntu-readdir            davfs2-ubuntu  reproduced      davfs2-readdir.sh
+davfs2-utime-before-close        davfs2         reproduced      davfs2-utime-before-close.sh
+samba-hardlink                   samba          reproduced      samba-hardlink.sh
+samba-utime-before-close         samba          reproduced      samba-utime-before-close.sh
+knfsd-v4-lock-two-mounts         knfsd-v4.2     reproduced      knfsd-v4-lock-two-mounts.sh
+rclone-truncate-grow             rclone         reproduced      rclone-truncate-grow.sh
+rclone-rename-over-open          rclone         reproduced      rclone-rename-over-open.sh
+9p-locks-9p2000                  u9fs-none      reproduced      9p-locks-9p2000.sh
+9p-unlink-open-u9fs              u9fs-none      reproduced      9p-unlink-open.sh u9fs
+u9fs-rename-at-root              u9fs-none      reproduced      u9fs-rename-at-root.sh
+9p-append-u9fs-none              u9fs-none      reproduced      9p-append.sh u9fs none
+9p-append-diod-loose             diod-loose     reproduced      9p-append.sh diod loose
+9p-append-diod-mmap              diod-mmap      reproduced      9p-append.sh diod mmap
+9p-stat-during-append-u9fs       u9fs-mmap      reproduced      9p-stat-during-append.sh u9fs
+diod-rename-open-none            diod-none      reproduced      9p-rename-open.sh diod none
+diod-rename-open-loose           diod-loose     reproduced      9p-rename-open.sh diod loose
+diod-ubuntu-rename-open-none     diod-none      not-reproduced  9p-rename-open.sh diod-ubuntu none
+sshfs-readlink                   sshfs          reproduced      sshfs-readlink.sh

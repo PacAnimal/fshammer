@@ -10,4 +10,3 @@ FAIL namespace/deep_rename_above:
 FAIL namespace/hardlink:
 FAIL namespace/hostile_names:
 FAIL shared.bin:
-? FAIL malice/fd_survives_enumeration:

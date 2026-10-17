@@ -1,6 +1,6 @@
 #!/bin/sh
 # The Linux 9p client (v9fs) over TCP to a local 9P server exporting an ext4 directory.
-# Usage: v9fs.sh <diod|u9fs> <cache mode: none|loose|mmap> <mounts: 1|2>
+# Usage: v9fs.sh <diod|diod-ubuntu|u9fs> <cache mode: none|loose|mmap> <mounts: 1|2>
 # diod (built from its latest release) speaks 9P2000.L; u9fs (Plan 9's Unix 9P server, built from the
 # last commit of its archive) speaks 9P2000.
 # Prints the mount point(s), with "-" for an absent second mount, and with cache=none the exported directory.
@@ -25,6 +25,13 @@ case "$server" in
         sudo /usr/local/sbin/diod --no-auth --export "$export" --listen "127.0.0.1:$port" --logdest stderr \
             >"$base/diod.log" 2>&1 &
         for _ in $(seq 50); do ss -ltn | grep -q ":$port " && break; sleep 0.2; done
+        version=9p2000.L
+        ;;
+    diod-ubuntu)
+        # Ubuntu 24.04's package, diod 1.0.24, for comparison with the current release
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq diod >/dev/null
+        port=565
+        sudo /usr/sbin/diod --no-auth --export "$export" --listen "127.0.0.1:$port" >&2
         version=9p2000.L
         ;;
     u9fs)

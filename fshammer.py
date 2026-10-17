@@ -2,8 +2,8 @@
 """fshammer: a concurrent workload for a filesystem, checked against an in-memory model.
 
 Runs every variant of every phase at least once against --dir, then repeats until --duration is spent,
-and verifies what it wrote. Prints a line per phase, a FAIL line per problem and a DECLARED GAP line for
-anything not tested.
+and verifies what it wrote. Prints one or more lines per phase, a FAIL line per problem and a DECLARED GAP
+line for anything not tested.
 
 Phases: own files, download, malice, identity, namespace, sqlite, publish, inode, walk, locks, contest,
 observer, shared. See https://github.com/PacAnimal/fshammer for what each checks.

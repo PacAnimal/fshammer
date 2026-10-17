@@ -13,5 +13,5 @@ FAIL namespace/hostile_names:
 FAIL observed.log:
 FAIL sqlite/mmap_write_through:
 ? FAIL shared.bin:
-# in some runs all writers stop making progress; the job then records process states (hang.txt)
+# in one recorded run the writers stopped progressing after the contest phase
 ? TIMEOUT

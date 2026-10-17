@@ -11,4 +11,3 @@ FAIL malice/mode_is_enforced:
 FAIL malice/rename_over_open:
 FAIL namespace/hostile_names:
 FAIL namespace/symlink_into_mount:
-? FAIL observed.log:

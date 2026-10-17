@@ -1,11 +1,8 @@
 FAIL locks/close_drops_every_lock:
 FAIL locks/getlk_names_the_holder:
 FAIL locks/ranges_are_ranges:
-FAIL malice/unlink_open:
+FAIL malice/log_rotation:
+FAIL malice/rename_live:
 FAIL shared.bin:
 ? FAIL locks/shared_is_shared:
 ? FAIL locks/unlock_splits_a_range:
-? FAIL observed.log:
-# diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies
-? FAIL locks/conflict_excludes:
-? FAIL locks/exclusive_rmw:

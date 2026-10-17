@@ -1,15 +1,9 @@
-FAIL inode/subtree_move_keeps_inodes:
+FAIL inode/three_rename_swap:
 FAIL locks/close_drops_every_lock:
 FAIL locks/getlk_names_the_holder:
 FAIL locks/ranges_are_ranges:
-FAIL malice/dir_rename_open:
-FAIL namespace/alphabet_path:
-FAIL namespace/deep_rename_above:
-FAIL namespace/populated_subtree_moves:
-FAIL namespace/rename_into_own_subtree:
+FAIL locks/unlock_splits_a_range:
+FAIL malice/log_rotation:
+FAIL malice/rename_recreate:
 FAIL shared.bin:
 ? FAIL locks/shared_is_shared:
-? FAIL locks/unlock_splits_a_range:
-# diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies
-? FAIL locks/conflict_excludes:
-? FAIL locks/exclusive_rmw:

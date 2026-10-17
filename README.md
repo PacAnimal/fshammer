@@ -12,8 +12,8 @@ layers, overlay and encrypting filesystems.
 - It covers appends (`O_APPEND`) and reopening files that are being appended to, renames and unlinks under
   open handles, symlinks and hardlinks, `fcntl` locks, `mmap`, extended attributes, directory listings
   under mutation, racing creates and deletes on one name, and ENOSPC.
-- Every variant runs at least once, however short the run, or is reported as a `DECLARED GAP` with the reason.
-- Anything a run did not test is printed as a `DECLARED GAP` line with the reason.
+- Every variant runs at least once, however short the run. Anything a run could not test is printed as a
+  `DECLARED GAP` line with the reason.
 - One Python file, standard library only, Python 3.12+. Linux and macOS.
 
 > [!WARNING]
@@ -21,7 +21,7 @@ layers, overlay and encrypting filesystems.
 > without sparse files. If the filesystem has less than 2 GiB free, it also keeps writing until writes are
 > refused, on purpose, to test what happens when it runs out of space.
 > While it is full, every other program writing to that filesystem gets "No space left on device".
-> Don't point it at a filesystem your system or other users depend on. See [Disk usage](#disk-usage).
+> Don't point it at a filesystem your system or other users depend on. See [Disk usage](https://github.com/PacAnimal/fshammer#disk-usage).
 
 ## Quick start
 
@@ -33,9 +33,10 @@ python3 fshammer.py --dir /mnt/under-test/fshammer --duration 0
 `--duration 0` attempts every variant once and stops, which takes seconds to minutes. The default is a
 300-second run.
 
-To install it as a command:
+To install it as a command, from PyPI once it is published there, or from GitHub until then:
 
 ```sh
+pipx install fshammer
 pipx install git+https://github.com/PacAnimal/fshammer
 fshammer --dir /mnt/under-test/fshammer
 ```
@@ -52,12 +53,12 @@ verdict. `FAIL` lines, `DECLARED GAP` lines and progress go to stderr.
 
 ```
 own files: 44 checked, 126057567 bytes, all sha256 match
-downloads: 20 completed as a real downloader does, 12 final files re-checked here, 76980080 bytes — chunked=4, oneshot=4, …
+downloads: 20 completed as a real downloader does, 12 final files re-checked here, …
 locks: 256 read-modify-writes under an exclusive lock, and the counter holds exactly that
-malice: 73 completed across 19 variants — append_vs_truncate=4, atomic_replace=4, contended_exclusive=4, …
+malice: 72 completed across 19 variants — append_vs_truncate=4, atomic_replace=4, contended_exclusive=4, …
 …
-shared.bin: 814 blocks from 4 writers (4 via --dir, 0 via --alt-dir), 17262551 bytes acknowledged, 17262551 on disk
-fshammer: OK (13s elapsed, --duration 0)
+shared.bin: 809 blocks from 4 writers (4 via --dir, 0 via --alt-dir), 18240719 bytes acknowledged, …
+fshammer: OK (10s elapsed, --duration 0)
 ```
 
 ```
@@ -110,7 +111,7 @@ writers are not hit by the full disk.
 | `--keep` | | keep the files after a run with no failures |
 | `--alt-dir DIR` | | the same directory through a second mount. Odd-numbered writers append to `shared.bin` and watch `observed.log` through it, and the cross-mount lock and publish checks use it. Needs `--procs 2` or more |
 | `--server-root DIR` | | where the server stores these files, if readable from this host. Used to tell a storage loss from a stale client cache. Only for a store where a file fsynced through the mount, with its directory fsynced, is immediately visible there with that content; a store that acknowledges fsync before applying it fails the publish checks |
-| `--crash-command CMD` | | shell command run after verification to make the store lose anything not yet durable. See [Crash testing](#crash-testing) |
+| `--crash-command CMD` | | shell command run after verification to make the store lose anything not yet durable. See [Crash testing](https://github.com/PacAnimal/fshammer#crash-testing) |
 | `--pre-audit-command CMD` | | shell command run after the writers finish and before verification starts, to inject faults the verification itself should survive. A non-zero exit is a `FAIL` |
 | `--fill-budget BYTES` | 2 GiB | most the ENOSPC check writes (plus up to 64 MiB). It runs only when `statvfs` reports less free space than this |
 | `--single-writer-handle` | | one write descriptor per own-file, and `pwrite` at end-of-file instead of `O_APPEND` for positional writes, for clients that cache writes. Reported as a gap |
@@ -274,4 +275,4 @@ tests on Linux, on pushes to `main` and on pull requests.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/PacAnimal/fshammer/blob/main/LICENSE)
