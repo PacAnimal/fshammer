@@ -523,6 +523,22 @@ def usage_error(message: str) -> None:
     raise SystemExit(2)
 
 
+def make_alt_dir(path: str, patience: float = 30.0) -> None:
+    """Creates --alt-dir, or waits for it to appear. It is usually --dir, just created through the other mount,
+    and that mount may still have the name cached as absent: mkdir then fails with EEXIST while a stat says it
+    is not there."""
+    try:
+        os.makedirs(path, exist_ok=True)
+        return
+    except FileExistsError:
+        pass
+    deadline = time.monotonic() + patience
+    while not os.path.isdir(path):
+        if time.monotonic() > deadline:
+            usage_error(f"--alt-dir {path}: the name exists but is not visible as a directory through this mount")
+        time.sleep(0.5)
+
+
 def require_same_export(primary: str, alternate: str) -> None:
     """Checks --dir and --alt-dir are the same directory by writing a sentinel through one and reading it
     through the other. Without this, a missing second mount is just an empty local directory and the run
@@ -5125,7 +5141,7 @@ def main() -> int:
     # before the workload, so nothing this run created can answer the probe
     cap_was_unnecessary = MAX_NAME_LENGTH < NAME_MAX and probe_the_cap(args.dir)
     if args.alt_dir:
-        os.makedirs(args.alt_dir, exist_ok=True)
+        make_alt_dir(args.alt_dir)
         require_same_export(args.dir, args.alt_dir)
 
     def shared_dir_for(w: int) -> str:

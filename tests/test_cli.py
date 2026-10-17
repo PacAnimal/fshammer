@@ -59,3 +59,19 @@ def test_invalid_invocations_exit_2(tmp_path):
                  ["--alt-dir", str(tmp_path / "elsewhere"), "--procs", "1"]):
         proc = run("--dir", str(tmp_path / "run"), *args)
         assert proc.returncode == 2, f"{args}: exit {proc.returncode}\n{proc.stderr[-1000:]}"
+
+
+def test_alt_dir_waits_for_a_name_the_other_mount_has_not_seen_yet(monkeypatch, tmp_path):
+    """mkdir answers EEXIST while stat still says absent, as through a mount caching the name as missing."""
+    from conftest import fshammer
+
+    looks = iter([False, False, True])
+
+    def makedirs(path, exist_ok=False):
+        raise FileExistsError(17, "File exists", path)
+
+    monkeypatch.setattr(fshammer.os, "makedirs", makedirs)
+    monkeypatch.setattr(fshammer.os.path, "isdir", lambda path: next(looks))
+    monkeypatch.setattr(fshammer.time, "sleep", lambda seconds: None)
+
+    fshammer.make_alt_dir(str(tmp_path / "alt"))
