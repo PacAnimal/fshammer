@@ -217,15 +217,17 @@ gap.
 
 [![Showcase](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml/badge.svg)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml)
 
-fshammer against filesystems set up on a GitHub runner, re-run on every push to `main` and weekly. Where it
-was practical the software is built from its latest release. Each badge shows the latest complete run:
-`passes`, `N failing checks` (distinct failing checks, optional ones included) or `did not finish` when that
-matches the recorded outcome, and `changed`, `reproducer changed` or `setup failed` when it does not. What
-each failure is, which component it points at, and a standalone reproducer for each likely defect, are in
+fshammer against filesystems set up on a GitHub runner, re-run weekly and when fshammer or the showcase
+changes. Where it was practical the software is built from its latest release. Each badge describes the latest
+complete run: green `no failures`; yellow `N failing checks (documented)` when every failing check is a
+documented limitation; orange `N failing checks` when any is a likely defect or not yet explained; red when the
+outcome differs from the record or the run did not complete. `N` counts distinct failing checks. What each
+failure is, which component it points at, and a standalone reproducer for each likely defect, are in
 [showcase/README.md](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md).
 
-The local filesystems are bind mounts of one filesystem, and no target fills a filesystem or uses
-`--crash-command`, so their `passes` does not cover ENOSPC or durability across a crash.
+Green means one pass (`--duration 0`) found nothing, on one host over loopback, with a second mount that is the
+same client or a bind mount, and without filling the filesystem or testing a crash. It is not a
+certification.
 
 | Target | Status | What fails |
 |---|---|---|
@@ -234,8 +236,8 @@ The local filesystems are bind mounts of one filesystem, and no target fills a f
 | XFS on a loop image, bind-mounted twice | [![xfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/xfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Nothing. |
 | Btrfs on a loop image, bind-mounted twice | [![btrfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/btrfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Nothing. |
 | overlayfs over ext4, mounted twice | [![overlayfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/overlayfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Nothing; nothing is copied up. |
-| knfsd, NFSv3, mounted twice | [![knfsd-v3](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v3.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Appends through both mounts may be lost, as `open(2)` documents for NFS. |
-| knfsd, NFSv4.2, mounted twice | [![knfsd-v4.2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v4.2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | A lock held through one mount does not exclude the other (reproducer; fshammer sees it in some runs). |
+| knfsd, NFSv3, mounted twice | [![knfsd-v3](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v3.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | In some runs appends through both mounts are lost; `open(2)` documents this for NFS, and it is still shown. |
+| knfsd, NFSv4.2, mounted twice | [![knfsd-v4.2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/knfsd-v4.2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | A lock held through one mount does not exclude the other (reproducer; fshammer sees it in some runs); appends through both mounts may be lost, as for NFSv3. |
 | NFS-Ganesha 4.3, NFSv4.1, mounted twice | [![ganesha-v4.1](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.1.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | Nothing. |
 | Samba 4.19.5, Linux SMB3 client | [![samba](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/samba.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | A hard link's second name cannot be opened; an mtime set before close is lost; SMB semantics. |
 | davfs2 1.7.3 over Apache mod_dav | [![davfs2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/davfs2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | A file given an mtime before close reads back empty; names over 248 bytes fail. |

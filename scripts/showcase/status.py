@@ -19,7 +19,7 @@ import repros  # noqa: E402
 
 
 def badge(result: dict | None, repro_results: list[dict | None]) -> tuple[str, str, str]:
-    """The badge message and colour, and the outcome word for summary.json."""
+    """The badge message and colour, and the outcome word for summary.json, describing what this run did."""
     if result is None:
         return "setup failed", "red", "setup failed"
     if not result["matched"]:
@@ -27,10 +27,12 @@ def badge(result: dict | None, repro_results: list[dict | None]) -> tuple[str, s
     if any(r is None or not r["matched"] for r in repro_results):
         return "reproducer changed", "red", "reproducer changed"
     if not result["finished"]:
-        return "did not finish", "orange", "as recorded"
-    if result["fails"] == 0:
-        return "passes", "brightgreen", "as recorded"
+        return "did not finish", "red", "did not finish"
+    if result["fails"] == 0 and result["exit"] == 0:
+        return "no failures", "brightgreen", "as recorded"
     checks = "failing check" if result["fails"] == 1 else "failing checks"
+    if set(result.get("classes", [])) == {"limitation"}:
+        return f"{result['fails']} {checks} (documented)", "yellow", "as recorded"
     return f"{result['fails']} {checks}", "orange", "as recorded"
 
 
@@ -51,6 +53,7 @@ def main() -> int:
         (out / f"{target}.json").write_text(json.dumps(
             {"schemaVersion": 1, "label": target, "message": message, "color": color}))
         summary.append({"target": target, "exit": result and result["exit"], "fails": result and result["fails"],
+                        "classes": result and result.get("classes"),
                         "outcome": outcome, "run": run_url, "kernel": result and result["kernel"],
                         "reproducers": {r["id"]: r["outcome"] for r in repro_results if r},
                         "timestamp": now})

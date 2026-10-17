@@ -1,4 +1,4 @@
-FAIL identity/utimes_survives_the_flush:
-FAIL malice/unlink_open:
-FAIL namespace/hostile_names:
-FAIL namespace/long_names:
+FAIL identity/utimes_survives_the_flush: [defect]
+FAIL malice/unlink_open: [open]
+FAIL namespace/hostile_names: [open]
+FAIL namespace/long_names: [open]

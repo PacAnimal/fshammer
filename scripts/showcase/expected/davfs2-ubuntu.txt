@@ -1,26 +1,27 @@
-FAIL identity/directory_mtime:
-FAIL identity/utimes_survives_the_flush:
-FAIL inode/directory_size_is_usable:
-FAIL inode/readdir_agrees_under_mutation:
-FAIL inode/rename_keeps_inode:
-FAIL inode/rename_over_kills_target:
-FAIL inode/rename_to_self:
-FAIL locks/exclusive_rmw:
-FAIL malice/contended_tree:
-FAIL malice/fd_survives_enumeration:
-FAIL malice/readdir_under_mutation:
-FAIL malice/unlink_open:
-FAIL namespace/case_is_consistent:
-FAIL namespace/hostile_names:
-FAIL namespace/long_names:
-FAIL namespace/normalisation_is_consistent:
-FAIL namespace/path_is_not_truncated:
-FAIL namespace/wide_directory:
-FAIL publish/follow_other_writers:
-FAIL walk/walk_content:
-FAIL walk/walk_manifest:
-FAIL walk/walk_paged:
-FAIL walk/walk_twice:
-FAIL walk/walk_typed:
-FAIL walk/walk_under_churn:
-FAIL writer N:
+FAIL identity/directory_mtime: [defect]
+FAIL identity/utimes_survives_the_flush: [defect]
+FAIL inode/directory_size_is_usable: [defect]
+FAIL inode/readdir_agrees_under_mutation: [defect]
+FAIL inode/rename_keeps_inode: [defect]
+FAIL inode/rename_over_kills_target: [defect]
+FAIL inode/rename_to_self: [defect]
+FAIL locks/exclusive_rmw: [defect]
+FAIL malice/contended_tree: [defect]
+FAIL malice/fd_survives_enumeration: [defect]
+FAIL malice/readdir_under_mutation: [defect]
+FAIL malice/unlink_open: [open]
+FAIL namespace/case_is_consistent: [defect]
+FAIL namespace/hostile_names: [open]
+FAIL namespace/long_names: [open]
+FAIL namespace/normalisation_is_consistent: [defect]
+FAIL namespace/path_is_not_truncated: [defect]
+FAIL namespace/wide_directory: [defect]
+FAIL publish/follow_other_writers: [defect]
+FAIL walk/walk_content: [defect]
+FAIL walk/walk_manifest: [defect]
+FAIL walk/walk_paged: [defect]
+FAIL walk/walk_twice: [defect]
+FAIL walk/walk_typed: [defect]
+FAIL walk/walk_under_churn: [defect]
+FAIL writer N: [defect]
+? FAIL namespace/populated_subtree_moves: [defect]

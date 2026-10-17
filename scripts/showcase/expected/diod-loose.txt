@@ -1,10 +1,10 @@
-FAIL inode/three_rename_swap:
-FAIL locks/close_drops_every_lock:
-FAIL locks/getlk_names_the_holder:
-FAIL locks/ranges_are_ranges:
-? FAIL locks/unlock_splits_a_range:
-FAIL malice/log_rotation:
-FAIL malice/rename_recreate:
-FAIL shared.bin:
-? FAIL locks/shared_is_shared:
+FAIL inode/three_rename_swap: [defect]
+FAIL locks/close_drops_every_lock: [limitation]
+FAIL locks/getlk_names_the_holder: [limitation]
+FAIL locks/ranges_are_ranges: [limitation]
+? FAIL locks/unlock_splits_a_range: [limitation]
+FAIL malice/log_rotation: [defect]
+FAIL malice/rename_recreate: [defect]
+FAIL shared.bin: [defect]
+? FAIL locks/shared_is_shared: [limitation]
 # diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies

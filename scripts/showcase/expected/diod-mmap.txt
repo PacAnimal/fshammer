@@ -1,11 +1,11 @@
-FAIL locks/close_drops_every_lock:
-FAIL locks/getlk_names_the_holder:
-FAIL locks/ranges_are_ranges:
-FAIL malice/log_rotation:
-FAIL malice/rename_live:
-FAIL shared.bin:
-? FAIL locks/shared_is_shared:
-? FAIL locks/unlock_splits_a_range:
+FAIL locks/close_drops_every_lock: [limitation]
+FAIL locks/getlk_names_the_holder: [limitation]
+FAIL locks/ranges_are_ranges: [limitation]
+FAIL malice/log_rotation: [defect]
+FAIL malice/rename_live: [defect]
+FAIL shared.bin: [defect]
+? FAIL locks/shared_is_shared: [limitation]
+? FAIL locks/unlock_splits_a_range: [limitation]
 # appends to observed.log race with stat() through the page cache in some runs
-? FAIL observed.log:
+? FAIL observed.log: [defect]
 # diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies

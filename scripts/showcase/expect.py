@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Run fshammer and require a recorded outcome.
 
-The outcome is the set of FAIL signatures, read from an expectations file with one signature per line:
+The outcome is the set of FAIL signatures, read from an expectations file with one signature per line, each
+tagged with how showcase/README.md classifies it: [defect] (a likely defect), [open] (not established) or
+[limitation] (documented, with a source):
 
-    FAIL locks/conflict_excludes:        must appear
-    ? FAIL shared.bin:                   may appear (seen in some recorded runs, not all)
-    ? TIMEOUT                            fshammer may not finish; the other lines are then not required
+    FAIL locks/conflict_excludes: [defect]       must appear
+    ? FAIL shared.bin: [limitation]              may appear (seen in some recorded runs, not all)
+    ? TIMEOUT [open]                             fshammer may not finish; the other lines are then not required
 
 The job fails if fshammer does not finish, its exit code does not match whether it printed FAIL lines, a
 required signature is missing, or a signature appears that the file does not list.
@@ -75,17 +77,22 @@ def signatures(err: str) -> set[str]:
     return {signature(line) for line in err.splitlines() if line.strip().startswith("FAIL")}
 
 
-def load(path: pathlib.Path) -> tuple[set[str], set[str]]:
-    required, allowed = set(), set()
+TAGS = ("defect", "open", "limitation")
+
+
+def load(path: pathlib.Path) -> tuple[set[str], set[str], dict[str, str]]:
+    """The required and allowed signatures, and each one's tag."""
+    required, allowed, tags = set(), set(), {}
     for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        if line.startswith("?"):
-            allowed.add(line[1:].strip())
-        else:
-            required.add(line)
-    return required, allowed
+        match = re.fullmatch(r"(\?\s*)?(.+?)\s+\[(\w+)\]", line)
+        if not match or match[3] not in TAGS:
+            raise SystemExit(f"{path}: every signature needs a tag, one of {', '.join(TAGS)}: {line!r}")
+        optional, sig, tags[match[2]] = match[1], match[2], match[3]
+        (allowed if optional else required).add(sig)
+    return required, allowed, tags
 
 
 def record(args: argparse.Namespace, hammer_args: list[str]) -> int:
@@ -100,7 +107,10 @@ def record(args: argparse.Namespace, hammer_args: list[str]) -> int:
         runs.append(found)
     every = set.intersection(*runs)
     some = set.union(*runs) - every
-    proposed = sorted(every) + [f"? {s}" for s in sorted(some)]
+    # keep the classification of signatures already listed; a new one needs one by hand
+    known = load(args.expected)[2] if args.expected.exists() else {}
+    proposed = ([f"{s} [{known.get(s, 'UNCLASSIFIED')}]" for s in sorted(every)]
+                + [f"? {s} [{known.get(s, 'UNCLASSIFIED')}]" for s in sorted(some)])
     (args.log / "expected.txt").write_text("".join(f"{line}\n" for line in proposed))
     print("proposed expectations:")
     for line in proposed:
@@ -130,7 +140,7 @@ def main() -> int:
     if args.record:
         return record(args, hammer_args)
 
-    required, allowed = load(args.expected)
+    required, allowed, tags = load(args.expected)
     code, out, err = run(hammer_args, args.timeout, args.log)
     print(out)
     print("FAIL lines reported:")
@@ -153,7 +163,7 @@ def main() -> int:
     # read by the workflow's status job
     (args.log / "result.json").write_text(json.dumps({
         "exit": code, "fails": len(found), "matched": not problems, "finished": code is not None,
-        "kernel": os.uname().release}))
+        "kernel": os.uname().release, "classes": sorted({tags.get(s, "unlisted") for s in found})}))
 
     print()
     if problems:

@@ -1,17 +1,17 @@
-FAIL identity/ctime_is_not_just_mtime:
-FAIL inode/directory_link_count_is_usable:
-FAIL inode/directory_size_is_usable:
-FAIL locks/close_drops_every_lock:
-FAIL locks/conflict_excludes:
-FAIL locks/exclusive_rmw:
-FAIL locks/getlk_names_the_holder:
-FAIL locks/shared_is_shared:
-FAIL locks/unlock_splits_a_range:
-FAIL malice/unlink_open:
-FAIL namespace/deep_rename_above:
-FAIL namespace/hostile_names:
-FAIL observed.log:
-FAIL sqlite/mmap_write_through:
-? FAIL shared.bin:
+FAIL identity/ctime_is_not_just_mtime: [limitation]
+FAIL inode/directory_link_count_is_usable: [limitation]
+FAIL inode/directory_size_is_usable: [limitation]
+FAIL locks/close_drops_every_lock: [defect]
+FAIL locks/conflict_excludes: [defect]
+FAIL locks/exclusive_rmw: [defect]
+FAIL locks/getlk_names_the_holder: [defect]
+FAIL locks/shared_is_shared: [defect]
+FAIL locks/unlock_splits_a_range: [defect]
+FAIL malice/unlink_open: [open]
+FAIL namespace/deep_rename_above: [open]
+FAIL namespace/hostile_names: [limitation]
+FAIL observed.log: [defect]
+FAIL sqlite/mmap_write_through: [open]
+? FAIL shared.bin: [defect]
 # in one recorded run the writers stopped progressing after the contest phase
-? TIMEOUT
+? TIMEOUT [open]

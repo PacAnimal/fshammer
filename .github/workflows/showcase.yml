@@ -6,6 +6,11 @@ name: Showcase
 on:
   push:
     branches: [main]
+    # only what can change an outcome; documentation and other workflows do not
+    paths:
+      - fshammer.py
+      - scripts/showcase/**
+      - .github/workflows/showcase.yml
   schedule:
     - cron: "17 4 * * 1"
   workflow_dispatch:
@@ -19,6 +24,11 @@ on:
         description: "space-separated target and reproducer names to run; empty runs everything"
         type: string
         default: ""
+
+# a newer run on the same ref supersedes this one
+concurrency:
+  group: showcase-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   showcase:
@@ -95,6 +105,13 @@ jobs:
           out="$RUNNER_TEMP/status"
           python3 scripts/showcase/status.py "$RUNNER_TEMP/artifacts" "$out" \
               "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # publish only if this run's commit is still the tip of main, so a superseded run never overwrites
+          # newer badges
+          tip="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$tip" != "$GITHUB_SHA" ]; then
+              echo "main is at $tip, not $GITHUB_SHA; not publishing"
+              exit 0
+          fi
           cd "$out"
           git init -q
           git checkout -q --orphan status

@@ -1,2 +1,2 @@
-? FAIL locks/cross_mount_excludes:
-? FAIL shared.bin:
+? FAIL locks/cross_mount_excludes: [open]
+? FAIL shared.bin: [limitation]

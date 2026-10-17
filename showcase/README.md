@@ -15,8 +15,9 @@ its archive. Before reporting anything here, reproduce it on the component's cur
 ## What the workflow checks
 
 The [Showcase workflow](https://github.com/PacAnimal/fshammer/blob/main/.github/workflows/showcase.yml) runs
-on every push to `main`, weekly, and on demand. GitHub disables scheduled workflows in a repository with no
-activity for 60 days.
+on every push to `main` that changes `fshammer.py`, `scripts/showcase/` or the workflow itself, weekly, and on
+demand. A newer run cancels an older one. GitHub disables scheduled workflows in a repository with no activity
+for 60 days.
 
 - **A target job** runs fshammer once (`--duration 0 --procs 4 --seed 1`) and compares its distinct failing
   checks with [`scripts/showcase/expected/<target>.txt`](https://github.com/PacAnimal/fshammer/tree/main/scripts/showcase/expected).
@@ -24,15 +25,22 @@ activity for 60 days.
   name and digits replaced by `N`, so one check that fails for many files counts once. The job fails if
   fshammer does not finish, its exit code does not match whether it printed `FAIL` lines, a listed check is
   missing, or an unlisted one appears. Checks marked `?` failed in some recorded runs and not others; they
-  are allowed but not required.
+  are allowed but not required. Each listed check is tagged `[defect]`, `[open]` or `[limitation]`, matching
+  the labels on this page.
 - **A reproducer job** runs a script from [`scripts/showcase/repro/`](https://github.com/PacAnimal/fshammer/tree/main/scripts/showcase/repro)
   that sets up the target and makes a few system calls, without fshammer.
   [`repros.txt`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repros.txt) states whether
   each is expected to reproduce; the job fails when the outcome differs.
 - **The status job** writes a [shields.io](https://shields.io/badges/endpoint-badge) badge file per target, and
-  a `summary.json`, to the `status` branch after each complete run on `main`. A badge counts distinct failing
-  checks, optional ones included. It shows `reproducer changed` when one of the target's reproducers no
-  longer has its recorded outcome.
+  a `summary.json`, to the `status` branch after each complete run on `main`, if that run's commit is still
+  the tip of `main`. A badge describes that run:
+  - green `no failures`: fshammer exited 0 and printed no `FAIL` line;
+  - yellow `N failing checks (documented)`: every failing check is tagged `[limitation]`;
+  - orange `N failing checks`: at least one failing check is a likely defect or not established;
+  - red `changed`, `reproducer changed`, `setup failed` or `did not finish`: the outcome differs from the
+    record, a reproducer's outcome differs, the target could not be set up, or fshammer did not finish.
+
+  `N` counts distinct failing checks in that run, optional ones included.
 - Running the workflow by hand with `mode: record` runs each target three times and writes a proposed
   expectations file instead of asserting.
 

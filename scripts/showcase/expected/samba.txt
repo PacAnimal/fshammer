@@ -1,12 +1,12 @@
-FAIL identity/chmod_keeps_bytes_and_mtime:
-FAIL identity/utimes_survives_the_flush:
-FAIL inode/directory_link_count_is_usable:
-FAIL inode/directory_size_is_usable:
-FAIL locks/close_drops_every_lock:
-FAIL locks/unlock_splits_a_range:
-FAIL malice/dir_rename_open:
-FAIL malice/mode_is_enforced:
-FAIL namespace/deep_rename_above:
-FAIL namespace/hardlink:
-FAIL namespace/hostile_names:
-FAIL shared.bin:
+FAIL identity/chmod_keeps_bytes_and_mtime: [limitation]
+FAIL identity/utimes_survives_the_flush: [open]
+FAIL inode/directory_link_count_is_usable: [open]
+FAIL inode/directory_size_is_usable: [open]
+FAIL locks/close_drops_every_lock: [limitation]
+FAIL locks/unlock_splits_a_range: [open]
+FAIL malice/dir_rename_open: [open]
+FAIL malice/mode_is_enforced: [limitation]
+FAIL namespace/deep_rename_above: [open]
+FAIL namespace/hardlink: [open]
+FAIL namespace/hostile_names: [limitation]
+FAIL shared.bin: [open]

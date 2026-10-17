@@ -1,19 +1,19 @@
-FAIL identity/ctime_is_not_just_mtime:
-FAIL identity/sentinel_mtimes:
-FAIL inode/readdir_agrees_under_mutation:
-FAIL inode/rename_keeps_inode:
-FAIL inode/rename_over_kills_target:
-FAIL inode/rename_to_self:
-FAIL inode/subtree_move_keeps_inodes:
-FAIL inode/unique_inodes:
-FAIL locks/cross_mount_excludes:
-FAIL namespace/hardlink:
-FAIL namespace/hostile_names:
-FAIL namespace/populated_subtree_moves:
-FAIL namespace/rename_into_own_subtree:
-FAIL namespace/symlink_cycle_abuse:
-FAIL namespace/symlink_dangling:
-FAIL namespace/symlink_into_mount:
-FAIL namespace/symlink_roundtrip:
-FAIL shared.bin:
-FAIL walk/walk_manifest:
+FAIL identity/ctime_is_not_just_mtime: [limitation]
+FAIL identity/sentinel_mtimes: [open]
+FAIL inode/readdir_agrees_under_mutation: [limitation]
+FAIL inode/rename_keeps_inode: [limitation]
+FAIL inode/rename_over_kills_target: [limitation]
+FAIL inode/rename_to_self: [limitation]
+FAIL inode/subtree_move_keeps_inodes: [limitation]
+FAIL inode/unique_inodes: [limitation]
+FAIL locks/cross_mount_excludes: [limitation]
+FAIL namespace/hardlink: [limitation]
+FAIL namespace/hostile_names: [open]
+FAIL namespace/populated_subtree_moves: [limitation]
+FAIL namespace/rename_into_own_subtree: [limitation]
+FAIL namespace/symlink_cycle_abuse: [limitation]
+FAIL namespace/symlink_dangling: [limitation]
+FAIL namespace/symlink_into_mount: [limitation]
+FAIL namespace/symlink_roundtrip: [limitation]
+FAIL shared.bin: [open]
+FAIL walk/walk_manifest: [limitation]
