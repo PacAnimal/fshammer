@@ -1,6 +1,9 @@
 """What a run leaves behind, and what it refuses to start in."""
+import multiprocessing
 import subprocess
 import sys
+
+import pytest
 
 from conftest import HAMMER
 
@@ -166,13 +169,16 @@ def test_only_one_writer_writes_past_4_gib(tmp_path):
     assert "sparse_far_offset=1" in proc.stdout or "DECLARED GAP malice/sparse_far_offset" in proc.stderr
 
 
-def test_writers_end_when_the_parent_is_killed(tmp_path):
-    """SIGKILL cannot be handled, so the writers must notice the parent is gone and stop by themselves."""
+@pytest.mark.parametrize("method", multiprocessing.get_all_start_methods())
+def test_writers_end_when_the_parent_is_killed(tmp_path, method):
+    """SIGKILL cannot be handled, so the writers must notice fshammer is gone and stop by themselves."""
     import signal
     import time
 
     target = tmp_path / "run"
-    proc = subprocess.Popen([sys.executable, str(HAMMER), "--dir", str(target), "--duration", "120", "--procs", "2"],
+    launch = (f"import multiprocessing, sys; sys.path.insert(0, {str(HAMMER.parent)!r}); import fshammer; "
+              f"multiprocessing.set_start_method({method!r}); sys.argv[0] = 'fshammer'; sys.exit(fshammer.main())")
+    proc = subprocess.Popen([sys.executable, "-c", launch, "--dir", str(target), "--duration", "120", "--procs", "2"],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline and not any(target.glob("w*")):

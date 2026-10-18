@@ -4665,18 +4665,23 @@ class WriterReport:
 
 
 def exit_with_parent(parent: int) -> None:
-    """Ends this writer once its parent has gone, whatever killed the parent (SIGKILL included)."""
+    """Ends this writer once fshammer has gone, whatever killed it (SIGKILL included).
+
+    Asks after fshammer's pid, not getppid(): under the forkserver start method the parent is the fork server."""
     while True:
         time.sleep(1)
-        if os.getppid() != parent:
+        try:
+            os.kill(parent, 0)
+        except ProcessLookupError:
             os._exit(1)
 
 
-def worker(directory: str, shared_dir: str, writer: int, deadline: float, seed: int, procs: int, out: Queue) -> None:
+def worker(directory: str, shared_dir: str, writer: int, deadline: float, seed: int, procs: int, out: Queue,
+           parent: int) -> None:
     # the parent's handlers are for the parent; a writer is stopped by its parent or ends with it
     for signum in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(signum, signal.SIG_DFL)
-    threading.Thread(target=exit_with_parent, args=(os.getppid(),), daemon=True).start()
+    threading.Thread(target=exit_with_parent, args=(parent,), daemon=True).start()
     rng = random.Random(seed * 1000 + writer)
     report = WriterReport(writer)
     models: dict[str, bytearray] = {}
@@ -5226,7 +5231,7 @@ def hammer() -> int:
     started_at = time.monotonic()
     deadline = started_at + args.duration
     results: Queue = Queue()
-    procs = [Process(target=worker, args=(args.dir, shared_dir_for(w), w, deadline, args.seed, args.procs, results))
+    procs = [Process(target=worker, args=(args.dir, shared_dir_for(w), w, deadline, args.seed, args.procs, results, os.getpid()))
              for w in range(args.procs)]
     for p in procs:
         p.start()
