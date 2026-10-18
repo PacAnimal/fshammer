@@ -117,17 +117,18 @@ def test_every_variant_passes_on_a_filesystem_that_is_known_good(workdir):
 
 
 @pytest.mark.skipif(not SMALL, reason="FSHAMMER_SMALL_DIR is not set (see scripts/reference-fs.sh)")
-def test_running_out_of_space_on_a_small_filesystem_is_honest():
+@pytest.mark.parametrize("procs", ["1", "4"])
+def test_running_out_of_space_on_a_small_filesystem_is_honest(procs):
     """Refuse with ENOSPC, or accept and keep: acknowledging a write and storing less is the silent loss.
 
     The budget is above the filesystem's free space on purpose — that is what makes the tool attempt the
-    fill rather than decline it. Four writers, because the fill must not be charged to the variants running
-    beside it.
+    fill rather than decline it. One writer fills alone; four check the fill is not charged to the variants
+    running beside it.
     """
     directory = pathlib.Path(SMALL) / f"run-{uuid.uuid4().hex}"
     directory.mkdir()
     try:
-        run = hammer(directory, "--procs", "4", "--seed", "2", "--fill-budget", str(2 << 30))
+        run = hammer(directory, "--procs", procs, "--seed", "2", "--fill-budget", str(2 << 30))
     finally:
         shutil.rmtree(directory, ignore_errors=True)
 
