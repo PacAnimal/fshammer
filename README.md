@@ -79,9 +79,9 @@ that wrote it, and whether the bytes were still wrong after the page cache was d
 | Exit | Meaning |
 |---|---|
 | `0` | no `FAIL` lines. Each `DECLARED GAP` line is something the run did not test |
-| `1` | at least one `FAIL` line on stderr, or every writer died without reporting |
+| `1` | at least one `FAIL` line on stderr, or a writer died without reporting (the run then stops without an audit) |
 | `2` | invalid invocation: bad arguments, a non-empty `--dir`, or an `--alt-dir` that is not the same directory |
-| `3` | an error in fshammer's main process; a traceback is printed. Not a verdict on the filesystem. An exception inside a writer or a check is a `FAIL` line naming its type and where it was raised, so a `FAIL` naming something other than an `OSError` (a `TypeError`, say) is likely a fault in fshammer |
+| `3` | an error in fshammer's main process; a traceback is printed. Not a verdict on the filesystem. An exception inside a writer or a check is a `FAIL` line naming its type and where it was raised, so a `FAIL` naming something other than an `OSError` or an `AssertionError` (a `TypeError`, say) is likely a fault in fshammer |
 | `128+N` | stopped by Ctrl-C (130), SIGTERM (143) or SIGHUP (129). The writers are stopped too, and the files are left in `--dir`. If the parent dies any other way (SIGKILL, for example), the writers stop by themselves within about a second of it being reaped (normally at once, by whatever started it) |
 
 ## Phases
@@ -239,7 +239,8 @@ changes. Where it was practical the software is built from its latest release as
   was not recorded), a reproducer's outcome changed, or the job produced no result (setup failed, or the job died before fshammer finished).
 
 The badges come from the latest showcase run on `main` that published, and the table below is generated
-from the expectation files those runs are checked against. `N` counts distinct failing checks. What each failure is, which component it points at, and a standalone
+from the expectation files those runs are checked against; on PyPI the table is as of the release, while the
+badges stay live. `N` counts distinct failing checks. What each failure is, which component it points at, and a standalone
 reproducer for each likely defect and for some of the other findings, are in
 [showcase/README.md](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md).
 
@@ -263,7 +264,7 @@ filesystem or testing a crash. It is not a certification.
 | [NFS-Ganesha, NFSv4.1, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v4.1](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.1.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 1 check; documented: 1 check, in some runs. |
 | [NFS-Ganesha, NFSv4.2, mounted twice on one client](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v4.2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 1 check; documented: 1 check, in some runs. |
 | [NFS-Ganesha, NFSv4.2, two clients](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#nfs-ganesha) | [![ganesha-v4.2-2client](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/ganesha-v4.2-2client.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 1 check; documented: 1 check, in some runs. |
-| [Samba, Linux SMB3 client, mounted twice](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#samba) | [![samba](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/samba.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 5 checks (+1 in some runs); documented: 7 checks. |
+| [Samba, Linux SMB3 client, mounted twice](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#samba) | [![samba](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/samba.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 5 checks (+2 in some runs); documented: 7 checks. |
 | [davfs2 over Apache mod_dav](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#davfs2) | [![davfs2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/davfs2.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | likely defect (davfs2 1.7.3): 1 check (`identity/utimes_survives_the_flush`); not established: 3 checks (+2 in some runs). |
 | [davfs2, Ubuntu's package](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#davfs2-170-ubuntu-2404) | [![davfs2-ubuntu](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/davfs2-ubuntu.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | fixed upstream: every directory listing fails with EINVAL (davfs2 1.7.2 fixed it); following from it: 24 checks (+1 in some runs); not established: 2 checks. |
 | [sshfs, mounted twice](https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md#sshfs) | [![sshfs](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/sshfs.json)](https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml) | not established: 3 checks; documented: 16 checks. |
@@ -285,7 +286,7 @@ filesystem or testing a crash. It is not a certification.
 | Tool | What it does | Compared with fshammer |
 |---|---|---|
 | [xfstests](https://git.kernel.org/pub/scm/fs/xfs/xfstests-dev.git) | the regression suite for Linux kernel filesystems, including NFS, CIFS, overlayfs and FUSE; includes fsx and fsstress | far broader. Needs configuring per filesystem, with a scratch filesystem for some tests |
-| fsx (in xfstests) | random reads, writes, truncates, mappings, fallocate, hole punching, clone and copy ranges, AIO and direct I/O on one file, checked against an in-memory copy | the same kind of check, on one file from one process, with many more I/O types. Never opens a file with `O_APPEND` |
+| fsx (in xfstests) | random reads, writes, truncates, mappings, fallocate, hole punching, clone and copy ranges, AIO and direct I/O on one file, checked against an in-memory copy | the same kind of check, on one file from one process. Adds what fshammer does not use: fallocate, hole punching, clone and copy ranges, AIO and direct I/O. Never opens a file with `O_APPEND` |
 | fsstress (in xfstests) | random namespace and I/O operations from many processes | does not check file contents. Never opens a file with `O_APPEND` |
 | [LTP](https://github.com/linux-test-project/ltp) growfiles | grows files, optionally with `O_APPEND`, and checks their contents | sizes its work from `statfs` free space, so it does little on a mount that reports none |
 | [Connectathon](https://wiki.linux-nfs.org/wiki/index.php/Connectathon_test_suite) (cthon04) | NFS client tests: basic operations, special cases, and byte-range locking | the standard NFS interoperability tests. Fewer concurrent and data-checking tests |

@@ -59,7 +59,8 @@ scripts/showcase/run.sh samba                          # one target
 scripts/showcase/repros.py run samba-hardlink /tmp/r   # one reproducer
 ```
 
-Only in a throwaway VM or container, with sudo. The setup scripts:
+Only in a throwaway VM (or a privileged container on a host whose kernel has the loop, nfsd, 9p and
+cifs modules), with sudo. The setup scripts:
 
 - install Ubuntu packages (among them nfs-kernel-server, nfs-common, rpcbind, samba, cifs-utils, apache2,
   openssh-server, fuse3, build-essential and git), and build and install davfs2, sshfs, bindfs, libfuse and
@@ -109,7 +110,7 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [NFS-Ganesha, NFSv4.1, mounted twice on one client](#nfs-ganesha) | 15.9 | 1, 1 optional | 1 |  |
 | [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.9 | 1, 1 optional | 1 | 1 |
 | [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.9 | 1, 1 optional |  | 1 |
-| [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12, 1 optional | 2 |  |
+| [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12, 2 optional | 2 |  |
 | [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4, 2 optional | 1 |  |
 | [davfs2, Ubuntu's package](#davfs2-170-ubuntu-2404) | 1.7.0 (Ubuntu) | 26, 1 optional | 1 |  |
 | [sshfs, mounted twice](#sshfs) | 3.7.6, libfuse 3.18.3 | 19 |  |  |
@@ -259,6 +260,8 @@ mount -t cifs //127.0.0.1/share /mnt/b -o vers=3.1.1,username=$USER,password=PAS
   `strict rename = no`, which the showcase uses, it checks the files open in the same smbd process
   (`file_find_subpath()` in `source3/smbd/smb2_reply.c`); with `strict rename = yes` it checks every process
   (`have_file_open_below()`) (`malice/dir_rename_open`, `namespace/deep_rename_above`).
+- **Not established:** in some runs `rmdir()` fails with ENOTEMPTY straight after every name in the directory
+  was unlinked without error (`malice/fd_survives_enumeration`, optional; seen in one run).
 - **Not established:** directories report `st_nlink` 2 and size 0 whatever they hold
   (`inode/directory_link_count_is_usable`, `inode/directory_size_is_usable`); in `shared.bin`, appended through
   the two sessions, appends are lost or overwrite each other ("block frame broken").
@@ -430,7 +433,8 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   on the same range (`locks/close_drops_every_lock`, `conflict_excludes`, `exclusive_rmw`,
   `getlk_names_the_holder`, `shared_is_shared`, `unlock_splits_a_range`). 9P2000 has no lock messages, and for
   it the client's `v9fs_file_lock`
-  (`fs/9p/vfs_file.c`) returns success without recording the lock. Reproduced on Ubuntu's 6.17.0-1022-azure
+  (`fs/9p/vfs_file.c`) returns success without recording the lock, not even locally; its comment reads "Bugs:
+  this looks like a local only lock, we should extend into 9P by using open exclusive". Reproduced on Ubuntu's 6.17.0-1022-azure
   kernel only; the cited code is the same in mainline v7.2.
   [`9p-locks-9p2000.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-locks-9p2000.sh)
   mounts with `cache=none`; the same `v9fs_file_lock` serves every 9P2000 cache mode, including `cache=mmap`.
@@ -440,10 +444,12 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   server's (`v9fs_stat2inode` without `V9FS_STAT2INODE_KEEP_ISIZE`), while written pages are still on their
   way; later appends start from the smaller size.
   [`9p-stat-during-append.sh u9fs`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-stat-during-append.sh):
-  400 writes of 32 KiB, 13107200 bytes reported written; how much is missing varies between runs. The same
-  reproducer against diod, which goes through the same client sequence (`v9fs_vfs_getattr_dotl`), loses bytes
-  in some runs and none in others (32768 bytes in one run), so it is not specific to u9fs, though u9fs loses
-  far more; which component is at fault is not established.
+  400 writes of 32 KiB, 13107200 bytes reported written, then `fsync()`; the server's own copy of the file is
+  short and has blocks out of place (in one run 8085504 bytes missing and 247 of 400 blocks not in place; the
+  amount varies). Against diod, which goes through the same client sequence (`v9fs_vfs_getattr_dotl`), the
+  same reproducer has lost nothing so far, while fshammer's `observed.log` on diod with `cache=mmap` loses
+  blocks in some runs; so it is probably not specific to u9fs, though u9fs loses far more. Which component is
+  at fault is not established.
   Reproduced on 6.17.0-1022-azure only; the cited code is the same in mainline v7.2.
 - **Not established (Linux 9p client):** four processes appending to one file with `O_APPEND` on one mount,
   with `cache=none`, lose bytes. Each write goes through `netfs_unbuffered_write_iter()`
@@ -474,8 +480,9 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   directories with length 0 (`u9fs.c`, `fidstat`) (`inode/directory_size_is_usable`).
 - **Limitation:** u9fs stores a tab in a name as `\09`, as its manual page documents
   (`namespace/hostile_names`).
-- **Not established (`cache=mmap`):** in some runs fshammer does not finish within 30 minutes. In the one
-  captured, two writers were in uninterruptible sleep in a `write()`: one in `folio_wait_writeback`, called
+- **Not established (`cache=mmap`):** in one recorded run
+  ([39057850322](https://github.com/PacAnimal/fshammer/actions/runs/39057850322)) fshammer did not finish
+  within 30 minutes. In that run, two writers were in uninterruptible sleep in a `write()`: one in `folio_wait_writeback`, called
   from `netfs_perform_write`, waiting for a page's writeback that did not complete; the other in
   `netfs_start_io_write`, waiting for the first. Whether u9fs stopped answering or the client lost the reply is
   not established; the next step is a capture of the 9P traffic. The job saves each process's state, kernel
@@ -524,7 +531,8 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
   [`9p-append.sh diod loose`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-append.sh).
 - **Not established (`cache=mmap`):** in some runs `observed.log`, appended to while other processes call
   `stat()` on it, loses or tears blocks. `v9fs_vfs_getattr_dotl` has the same sequence as the 9P2000 path
-  described for u9fs above; `9p-stat-during-append.sh` loses bytes with diod in some runs and none in others.
+  described for u9fs above. `9p-stat-during-append.sh diod`, which checks the server's copy after `fsync()`,
+  has lost nothing so far, so the reproducer does not establish it for diod.
 - **Limitation:** diod implements POSIX locks with whole-file `flock()` (`diod_ops.c`: "Implement POSIX locks
   in terms of BSD flock locks"), so byte ranges, shared locks and `F_GETLK` do not behave as POSIX describes
   (`locks/*`). Which of the lock checks fail varies between runs.

@@ -11,3 +11,5 @@ FAIL namespace/hardlink: [open]
 FAIL namespace/hostile_names: [limitation]
 FAIL shared.bin: [open]
 ? FAIL malice/negatives: [open]
+# in one run rmdir failed with ENOTEMPTY right after every name in the directory was unlinked
+? FAIL malice/fd_survives_enumeration: [open]
