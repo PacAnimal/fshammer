@@ -36,3 +36,11 @@ def test_a_lost_block_is_still_reported(tmp_path):
     problems = fshammer.verify_shared(str(path), expected(3))
 
     assert problems == ["block (writer 0 seq 1, 100 bytes) was acknowledged but is not in the file as a whole block"]
+
+
+def test_a_long_list_is_cut_short_and_counted_whole(capsys):
+    assert fshammer.print_capped("observed.log", [f"problem {i}" for i in range(25)]) == 25
+
+    err = capsys.readouterr().err
+    assert err.count("FAIL observed.log:") == 20
+    assert "… and 5 more" in err

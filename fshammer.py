@@ -4835,6 +4835,15 @@ def verify_shared(path: str, expected: dict[BlockId, int]) -> list[str]:
     return problems
 
 
+def print_capped(subject: str, problems: list[str], limit: int = 20) -> int:
+    """Prints the first `limit` problems as FAIL lines and how many more there were; returns how many there were."""
+    for problem in problems[:limit]:
+        print(f"  FAIL {subject}: {problem}", file=sys.stderr)
+    if len(problems) > limit:
+        print(f"  … and {len(problems) - limit} more", file=sys.stderr)
+    return len(problems)
+
+
 # passed to workers through the environment: on macOS they are spawned, re-import this module, and would
 # never see globals set in hammer()
 _MOUNT_ROOT = os.environ.get("FSHAMMER_MOUNT_ROOT") or None
@@ -5084,7 +5093,7 @@ def hammer() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="exit 0 = no FAIL lines. Each DECLARED GAP line on stderr is something the run did not test.\n"
-               "exit 1 = at least one FAIL line on stderr, or every writer died without reporting.\n"
+               "exit 1 = at least one FAIL line on stderr, or a writer died without reporting.\n"
                "exit 2 = invalid invocation: bad arguments, a non-empty --dir, or an --alt-dir that is not\n"
                "the same directory as --dir.\n"
                "exit 3 = an error in fshammer's main process (a traceback is printed); not a verdict on the\n"
@@ -5263,7 +5272,8 @@ def hammer() -> int:
                       f"{alive} writer(s) alive", file=sys.stderr, flush=True)
                 if alive == 0:
                     raise SystemExit(
-                        f"FAIL: every writer exited without reporting — {outstanding} report(s) never arrived. "
+                        f"FAIL: {outstanding} writer(s) exited without reporting, and none is still running; the reports "
+                        f"that did arrive were not audited. "
                         f"A writer that dies before its put() takes its whole share of the oracle with it, "
                         f"so this is a FAILED run and not an empty one.")
 
@@ -5457,9 +5467,7 @@ def hammer() -> int:
         failures += 1
 
     # the frames are always verified; how much watching happened is reported beside that
-    for problem in verify_shared(observed_path, observed_expected):
-        print(f"  FAIL {OBSERVED}: {problem}", file=sys.stderr)
-        failures += 1
+    failures += print_capped(OBSERVED, verify_shared(observed_path, observed_expected))
 
     if observer_total.get("appended") and watchers < max(20, observer_total["appended"] // 200):
         # too few observations to have overlapped the writing is a gap, not a pass
@@ -5503,11 +5511,7 @@ def hammer() -> int:
         if args.alt_dir and not via_alt:
             problems.insert(0, "--alt-dir was given but no writer appended through it — the two-mount case did not run")
 
-        for problem in problems[:20]:
-            print(f"  FAIL {shared_path}: {problem}", file=sys.stderr)
-        if len(problems) > 20:
-            print(f"  … and {len(problems) - 20} more", file=sys.stderr)
-        failures += len(problems)
+        failures += print_capped(shared_path, problems)
 
     # ── the crash ───────────────────────────────────────────────────────────────────────────────────
     # everything above ran against a store that never stopped. Make it lose what it had not made durable,
