@@ -123,6 +123,17 @@ def test_an_internal_error_exits_3_and_an_interrupt_130(monkeypatch, capsys):
     assert fshammer.main() == 130                   # 128 + SIGINT
 
 
+def group_alive(pgid: int) -> bool:
+    """Whether any process in the group is left: writers are spawned on macOS, so their command line does not
+    name --dir and pgrep -f cannot find them."""
+    import os
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
 def test_sigterm_to_the_parent_stops_every_writer(tmp_path):
     """A terminated parent must not leave its writer processes running."""
     import signal
@@ -130,7 +141,7 @@ def test_sigterm_to_the_parent_stops_every_writer(tmp_path):
 
     target = tmp_path / "run"
     proc = subprocess.Popen([sys.executable, str(HAMMER), "--dir", str(target), "--duration", "60", "--procs", "2"],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline and not any(target.glob("w*")):
         time.sleep(0.2)
@@ -139,8 +150,10 @@ def test_sigterm_to_the_parent_stops_every_writer(tmp_path):
     _, err = proc.communicate(timeout=60)
 
     assert proc.returncode == 128 + signal.SIGTERM, err[-2000:]
-    survivors = subprocess.run(["pgrep", "-f", str(target)], capture_output=True, text=True).stdout.split()
-    assert survivors == [], f"writer processes still running: {survivors}"
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline and group_alive(proc.pid):
+        time.sleep(0.5)
+    assert not group_alive(proc.pid), "writer processes still running after the parent exited"
     assert any(target.iterdir()), "an interrupted run must leave its files"
 
 
@@ -151,3 +164,28 @@ def test_only_one_writer_writes_past_4_gib(tmp_path):
     assert proc.returncode == 0, proc.stderr[-2000:]
     assert "sparse_far_offset=2" not in proc.stdout, "both writers wrote past 4 GiB"
     assert "sparse_far_offset=1" in proc.stdout or "DECLARED GAP malice/sparse_far_offset" in proc.stderr
+
+
+def test_writers_end_when_the_parent_is_killed(tmp_path):
+    """SIGKILL cannot be handled, so the writers must notice the parent is gone and stop by themselves."""
+    import signal
+    import time
+
+    target = tmp_path / "run"
+    proc = subprocess.Popen([sys.executable, str(HAMMER), "--dir", str(target), "--duration", "120", "--procs", "2"],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline and not any(target.glob("w*")):
+        time.sleep(0.2)
+    time.sleep(2)
+    proc.send_signal(signal.SIGKILL)
+    proc.wait(timeout=10)
+
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline and group_alive(proc.pid):
+        time.sleep(0.5)
+    alive = group_alive(proc.pid)
+    if alive:
+        import os
+        os.killpg(proc.pid, signal.SIGKILL)
+    assert not alive, "writer processes outlived their parent"

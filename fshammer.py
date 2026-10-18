@@ -13,7 +13,7 @@ from __future__ import annotations
 
 __version__ = "0.9.0"
 
-import argparse, binascii, errno, hashlib, mmap, os, queue, random, shutil, signal, stat, struct, subprocess, sys, time, traceback
+import argparse, binascii, errno, hashlib, mmap, os, queue, random, shutil, signal, stat, struct, subprocess, sys, threading, time, traceback
 from dataclasses import dataclass, field
 from multiprocessing import Pipe, Process, Queue
 
@@ -4664,7 +4664,19 @@ class WriterReport:
     error: "str | None" = None
 
 
+def exit_with_parent(parent: int) -> None:
+    """Ends this writer once its parent has gone, whatever killed the parent (SIGKILL included)."""
+    while True:
+        time.sleep(1)
+        if os.getppid() != parent:
+            os._exit(1)
+
+
 def worker(directory: str, shared_dir: str, writer: int, deadline: float, seed: int, procs: int, out: Queue) -> None:
+    # the parent's handlers are for the parent; a writer is stopped by its parent or ends with it
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, signal.SIG_DFL)
+    threading.Thread(target=exit_with_parent, args=(os.getppid(),), daemon=True).start()
     rng = random.Random(seed * 1000 + writer)
     report = WriterReport(writer)
     models: dict[str, bytearray] = {}
@@ -5060,6 +5072,9 @@ def main() -> int:
 
 
 def hammer() -> int:
+    # first, so a signal during setup is handled too; writers reset these for themselves
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, on_signal)
     ap = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -5068,8 +5083,9 @@ def hammer() -> int:
                "exit 2 = invalid invocation: bad arguments, a non-empty --dir, or an --alt-dir that is not\n"
                "the same directory as --dir.\n"
                "exit 3 = an error inside fshammer itself (a traceback is printed); not a verdict on the filesystem.\n"
-               "exit 128+N = stopped by signal N (130 for Ctrl-C, 143 for SIGTERM, 129 for SIGHUP); the writers\n"
-               "are stopped and the files are left in --dir.\n\n"
+               "exit 128+N = stopped by Ctrl-C (130), SIGTERM (143) or SIGHUP (129); the writers are stopped and\n"
+               "the files are left in --dir. If fshammer dies any other way (SIGKILL), the writers stop by themselves\n"
+               "within about a second.\n\n"
                "Disk use: about 1.5 GB at once with the defaults (plus 4 GiB on a filesystem without sparse\n"
                "files and at least 5 GiB free). If less than --fill-budget is free, it writes until writes are\n"
                "refused, and other programs on that filesystem get 'No space left on device' until it deletes\n"
@@ -5215,9 +5231,6 @@ def hammer() -> int:
     for p in procs:
         p.start()
     _CHILDREN[:] = procs
-    # after the writers started, so they keep the default handlers and terminate() still stops them
-    for signum in (signal.SIGTERM, signal.SIGHUP):
-        signal.signal(signum, on_signal)
 
     failures, shared_expected, files_checked, total_bytes = 0, {}, 0, 0
     # counted separately so an unrelated failure does not mark the own-file hashes as mismatched

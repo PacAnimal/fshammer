@@ -82,7 +82,7 @@ that wrote it, and whether the bytes were still wrong after the page cache was d
 | `1` | at least one `FAIL` line on stderr, or every writer died without reporting |
 | `2` | invalid invocation: bad arguments, a non-empty `--dir`, or an `--alt-dir` that is not the same directory |
 | `3` | an error inside fshammer itself; a traceback is printed. Not a verdict on the filesystem |
-| `128+N` | stopped by signal N: 130 for Ctrl-C, 143 for SIGTERM, 129 for SIGHUP. The writers are stopped too, and the files are left in `--dir` |
+| `128+N` | stopped by Ctrl-C (130), SIGTERM (143) or SIGHUP (129). The writers are stopped too, and the files are left in `--dir`. If the parent dies any other way (SIGKILL, for example), the writers stop by themselves within about a second |
 
 ## Phases
 
