@@ -112,7 +112,7 @@ def test_every_variant_passes_on_a_filesystem_that_is_known_good(workdir):
     assert "DECLARED GAP: --no-lock" not in run.stderr
     assert "namespace/hardlink" not in run.stderr, "hardlinks were declared a gap on a filesystem that has them"
     # the one gap that must ALWAYS be declared: a syscall cannot say how its answer was produced
-    assert "served from an INDEX from one the server rescanned" in run.stderr, \
+    assert "fshammer checks results, not speed" in run.stderr, \
         "the vantage-point gap is no longer declared, so a green verdict reads as covering something it cannot see"
 
 

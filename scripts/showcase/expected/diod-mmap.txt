@@ -1,7 +1,7 @@
 FAIL locks/close_drops_every_lock: [limitation]
 FAIL locks/getlk_names_the_holder: [limitation]
 FAIL locks/ranges_are_ranges: [limitation]
-FAIL malice/log_rotation: [defect]
+FAIL malice/log_rotation: [open]
 FAIL malice/rename_live: [defect]
 FAIL shared.bin: [open]
 ? FAIL locks/shared_is_shared: [limitation]

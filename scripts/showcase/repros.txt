@@ -2,30 +2,32 @@
 # (reproduced or not-reproduced), then the script in repro/ and its arguments.
 # A job fails when the outcome differs, so a fix upstream, or a change in the runner, shows up.
 davfs2-ubuntu-readdir            davfs2-ubuntu  reproduced      davfs2-readdir.sh
-davfs2-utime-before-close        davfs2         reproduced      davfs2-utime-before-close.sh
+davfs2-utime-before-close        davfs2         reproduced      covers=identity/utimes_survives_the_flush davfs2-utime-before-close.sh
 samba-hardlink                   samba          reproduced      samba-hardlink.sh
 samba-utime-before-close         samba          reproduced      samba-utime-before-close.sh
 knfsd-v4-lock-two-mounts         knfsd-v4.2     reproduced      nfs-lock-two-mounts.sh knfsd 4.2 same
 knfsd-v4-lock-two-clients        knfsd-v4.2-2client  not-reproduced  nfs-lock-two-mounts.sh knfsd 4.2 2client
+knfsd-v3-lock-two-mounts         knfsd-v3       not-reproduced  nfs-lock-two-mounts.sh knfsd 3 same
 ganesha-v4-lock-two-mounts       ganesha-v4.2   not-reproduced  nfs-lock-two-mounts.sh ganesha 4.2 same
 ganesha-v4-lock-two-clients      ganesha-v4.2-2client  not-reproduced  nfs-lock-two-mounts.sh ganesha 4.2 2client
 ganesha-v4.1-lock-contention     ganesha-v4.1   reproduced      nfs-lock-contention.sh ganesha 4.1
 ganesha-v4.2-lock-contention     ganesha-v4.2   reproduced      nfs-lock-contention.sh ganesha 4.2
 knfsd-v4.2-lock-contention       knfsd-v4.2     not-reproduced  nfs-lock-contention.sh knfsd 4.2
-ganesha-v3-lock                  ganesha-v3     reproduced      nfs-v3-lock.sh ganesha
+ganesha-v3-lock                  ganesha-v3     not-reproduced  nfs-v3-lock.sh ganesha
 knfsd-v3-lock                    knfsd-v3       not-reproduced  nfs-v3-lock.sh knfsd
-rclone-truncate-grow             rclone         reproduced      rclone-truncate-grow.sh
-rclone-rename-over-open          rclone         reproduced      rclone-rename-over-open.sh
-9p-locks-9p2000                  u9fs-none      reproduced      9p-locks-9p2000.sh
+rclone-truncate-grow             rclone         reproduced      covers=identity/truncate_grow_reads_zeros rclone-truncate-grow.sh
+rclone-rename-over-open          rclone         reproduced      covers=malice/rename_over_open rclone-rename-over-open.sh
+9p-locks-9p2000                  u9fs-none      reproduced      covers=locks/close_drops_every_lock,locks/conflict_excludes,locks/exclusive_rmw,locks/getlk_names_the_holder,locks/shared_is_shared,locks/unlock_splits_a_range also=u9fs-mmap 9p-locks-9p2000.sh
 9p-unlink-open-u9fs              u9fs-none      reproduced      9p-unlink-open.sh u9fs
 u9fs-rename-at-root              u9fs-none      reproduced      u9fs-rename-at-root.sh
 9p-append-u9fs-none              u9fs-none      reproduced      9p-append.sh u9fs none
 9p-append-diod-loose             diod-loose     reproduced      9p-append.sh diod loose
 9p-append-diod-mmap              diod-mmap      reproduced      9p-append.sh diod mmap
-9p-stat-during-append-u9fs       u9fs-mmap      reproduced      9p-stat-during-append.sh u9fs
-diod-rename-open-mmap            diod-mmap      reproduced      9p-rename-open.sh diod mmap
-diod-rename-open-none            diod-none      reproduced      9p-rename-open.sh diod none
-diod-rename-open-loose           diod-loose     reproduced      9p-rename-open.sh diod loose
+9p-stat-during-append-u9fs       u9fs-mmap      reproduced      covers=observed.log 9p-stat-during-append.sh u9fs
+9p-stat-during-append-diod       diod-mmap      not-reproduced  9p-stat-during-append.sh diod
+diod-rename-open-mmap            diod-mmap      reproduced      covers=malice/rename_live 9p-rename-open.sh diod mmap
+diod-rename-open-none            diod-none      reproduced      covers=malice/rename_live 9p-rename-open.sh diod none
+diod-rename-open-loose           diod-loose     reproduced      covers=malice/log_rotation,malice/rename_recreate,inode/three_rename_swap 9p-rename-open.sh diod loose
 diod-ubuntu-rename-open-none     diod-none      not-reproduced  9p-rename-open.sh diod-ubuntu none
 diod-ubuntu-rename-open-loose    diod-loose     not-reproduced  9p-rename-open.sh diod-ubuntu loose
 ganesha-9p-create                ganesha-9p-none   reproduced      ganesha-9p-create.sh

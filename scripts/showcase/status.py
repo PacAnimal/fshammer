@@ -9,6 +9,7 @@ whose outcome differs from repros.txt marks its target "reproducer changed".
 """
 import datetime
 import json
+import os
 import pathlib
 import sys
 
@@ -47,7 +48,7 @@ def main() -> int:
         path = artifacts / f"showcase-{target}" / "result.json"
         result = json.loads(path.read_text()) if path.exists() else None
         repro_results = []
-        for entry in (e for e in repros.entries() if e["target"] == target):
+        for entry in (e for e in repros.entries() if target in (e["target"], *e["also"])):
             rpath = artifacts / f"repro-{entry['id']}" / "result.json"
             repro_results.append(json.loads(rpath.read_text()) if rpath.exists() else None)
         message, color, outcome = badge(result, repro_results)
@@ -57,6 +58,8 @@ def main() -> int:
                         "classes": result and result.get("classes"),
                         "outcome": outcome, "run": run_url, "kernel": result and result["kernel"],
                         "reproducers": {r["id"]: r["outcome"] for r in repro_results if r},
+                        # the commit whose expected/ files these outcomes were judged against
+                        "commit": os.environ.get("GITHUB_SHA"),
                         "timestamp": now})
     (out / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
     for row in summary:

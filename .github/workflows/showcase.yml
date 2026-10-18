@@ -101,21 +101,26 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           pattern: "*"
           path: ${{ runner.temp }}/artifacts
-      - run: |
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
           out="$RUNNER_TEMP/status"
           python3 scripts/showcase/status.py "$RUNNER_TEMP/artifacts" "$out" \
               "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          # publish only if this run's commit is still the tip of main, so a superseded run never overwrites
-          # newer badges
-          tip="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if [ "$tip" != "$GITHUB_SHA" ]; then
-              echo "main is at $tip, not $GITHUB_SHA; not publishing"
+          # a newer push or scheduled showcase run on main that was not cancelled publishes later, or already
+          # has; a documentation commit starts no showcase run, so it does not stop this one publishing
+          newer="$(gh run list -R "$GITHUB_REPOSITORY" --workflow showcase.yml --branch main --limit 30 \
+              --json databaseId,conclusion,event \
+              -q "[.[] | select(.databaseId > $GITHUB_RUN_ID and .conclusion != \"cancelled\" and (.event == \"push\" or .event == \"schedule\"))] | length")"
+          if [ "$newer" != 0 ]; then
+              echo "a newer showcase run exists; not publishing"
               exit 0
           fi
           cd "$out"

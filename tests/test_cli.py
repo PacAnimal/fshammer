@@ -73,8 +73,13 @@ def test_alt_dir_waits_for_a_name_the_other_mount_has_not_seen_yet(monkeypatch, 
     monkeypatch.setattr(fshammer.os, "makedirs", makedirs)
     monkeypatch.setattr(fshammer.os.path, "isdir", lambda path: next(looks))
     monkeypatch.setattr(fshammer.time, "sleep", lambda seconds: None)
+    listed = []
+    monkeypatch.setattr(fshammer.os, "listdir", lambda path: listed.append(path) or [])
 
     fshammer.make_alt_dir(str(tmp_path / "alt"))
+
+    # reading the parent is what makes an NFS client revalidate a name it has cached as absent
+    assert listed and all(path == str(tmp_path) for path in listed), listed
 
 
 def test_a_failure_in_the_parents_enospc_check_is_reported_not_raised(tmp_path, monkeypatch):
@@ -115,4 +120,34 @@ def test_an_internal_error_exits_3_and_an_interrupt_130(monkeypatch, capsys):
     assert fshammer.main() == 3
     assert "internal error" in capsys.readouterr().err
     monkeypatch.setattr(fshammer, "hammer", interrupted)
-    assert fshammer.main() == 130
+    assert fshammer.main() == 130                   # 128 + SIGINT
+
+
+def test_sigterm_to_the_parent_stops_every_writer(tmp_path):
+    """A terminated parent must not leave its writer processes running."""
+    import signal
+    import time
+
+    target = tmp_path / "run"
+    proc = subprocess.Popen([sys.executable, str(HAMMER), "--dir", str(target), "--duration", "60", "--procs", "2"],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline and not any(target.glob("w*")):
+        time.sleep(0.2)
+    time.sleep(2)
+    proc.send_signal(signal.SIGTERM)
+    _, err = proc.communicate(timeout=60)
+
+    assert proc.returncode == 128 + signal.SIGTERM, err[-2000:]
+    survivors = subprocess.run(["pgrep", "-f", str(target)], capture_output=True, text=True).stdout.split()
+    assert survivors == [], f"writer processes still running: {survivors}"
+    assert any(target.iterdir()), "an interrupted run must leave its files"
+
+
+def test_only_one_writer_writes_past_4_gib(tmp_path):
+    """On a filesystem without sparse files each such file takes 4 GiB, so writers must not do it at once."""
+    proc = run("--dir", str(tmp_path / "run"), "--duration", "0", "--procs", "2")
+
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert "sparse_far_offset=2" not in proc.stdout, "both writers wrote past 4 GiB"
+    assert "sparse_far_offset=1" in proc.stdout or "DECLARED GAP malice/sparse_far_offset" in proc.stderr

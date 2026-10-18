@@ -2,8 +2,8 @@
 """fshammer: a concurrent workload for a filesystem, checked against an in-memory model.
 
 Runs every variant of every phase at least once against --dir, then repeats until --duration is spent,
-and verifies what it wrote. Prints one or more lines per phase, a FAIL line per problem and a DECLARED GAP
-line for anything not tested.
+and verifies what it wrote. Prints one or more lines per phase, FAIL lines for problems (long lists are cut
+short; the final verdict counts every problem) and a DECLARED GAP line for anything not tested.
 
 Phases: own files, download, malice, identity, namespace, sqlite, publish, inode, walk, locks, contest,
 observer, shared. See https://github.com/PacAnimal/fshammer for what each checks.
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 __version__ = "0.9.0"
 
-import argparse, binascii, errno, hashlib, mmap, os, queue, random, shutil, stat, struct, subprocess, sys, time, traceback
+import argparse, binascii, errno, hashlib, mmap, os, queue, random, shutil, signal, stat, struct, subprocess, sys, time, traceback
 from dataclasses import dataclass, field
 from multiprocessing import Pipe, Process, Queue
 
@@ -382,7 +382,7 @@ def hammer_own(directory: str, writer: int, deadline: float, rng: random.Random,
                                 again = os.pread(dfd, len(want), off)
                             finally:
                                 os.close(dfd)
-                            after_drop = ("SAME bytes — the data really is not stored (a storage loss)" if again == got
+                            after_drop = ("SAME bytes after dropping this client's clean cached pages — not served from this kernel's page cache" if again == got
                                           else "CORRECT after dropping the cache — the bytes were on the server "
                                                "and the client's cache was wrong (not a storage loss)"
                                           if again == want else
@@ -532,10 +532,10 @@ def usage_error(message: str) -> None:
     raise SystemExit(2)
 
 
-def make_alt_dir(path: str, patience: float = 30.0) -> None:
+def make_alt_dir(path: str, patience: float = 90.0) -> None:
     """Creates --alt-dir, or waits for it to appear. It is usually --dir, just created through the other mount,
     and that mount may still have the name cached as absent: mkdir then fails with EEXIST while a stat says it
-    is not there."""
+    is not there. Reading the parent directory makes an NFS client revalidate that cached absence."""
     try:
         os.makedirs(path, exist_ok=True)
         return
@@ -545,8 +545,11 @@ def make_alt_dir(path: str, patience: float = 30.0) -> None:
     while not os.path.isdir(path):
         if time.monotonic() > deadline:
             usage_error(f"--alt-dir {path}: the name exists but is not visible as a directory through this mount")
+        try:
+            os.listdir(os.path.dirname(path) or ".")
+        except OSError:
+            pass
         time.sleep(0.5)
-
 
 def require_same_export(primary: str, alternate: str) -> None:
     """Checks --dir and --alt-dir are the same directory by writing a sentinel through one and reading it
@@ -3020,7 +3023,9 @@ def hammer_malice(directory: str, writer: int, deadline: float,
             # ── an offset past where 32 bits stop counting ──
             elif variant == "sparse_far_offset":
                 # past 4 GiB, where 32-bit offsets and sizes wrap. Sparse, so cheap with holes; without holes
-                # it needs 4 GiB, so free space is checked first
+                # it needs 4 GiB, so only writer 0 runs it, one file at a time, after checking free space
+                if writer != 0:
+                    continue
                 usage = os.statvfs(d)
                 free = usage.f_bavail * usage.f_frsize
                 if free < FAR_OFFSET + (1 << 30):
@@ -4729,7 +4734,7 @@ def report_phase(phase: VariantPhase, total: PhaseResult) -> int:
         printed += 1
     # a phase whose variants were all refused did run; each refusal is reported as a gap below
     if not ran and not total.failures and len(total.refused) < len(total.done):
-        print(f"  FAIL: the {name} phase did not run", file=sys.stderr)
+        print(f"  FAIL {phase.key}: the {name} phase did not run", file=sys.stderr)
         return printed + 1
     for variant, count in sorted(total.done.items()):
         if count or variant in total.failures:
@@ -5010,14 +5015,45 @@ def remove_tree(path: str) -> None:
     shutil.rmtree(path)
 
 
+# the writer processes, so an interrupted parent can stop them rather than leave them running
+_CHILDREN: list = []
+
+
+class Interrupted(Exception):
+    """A termination signal reached the parent."""
+    def __init__(self, signum: int):
+        super().__init__(signum)
+        self.signum = signum
+
+
+def on_signal(signum, _frame) -> None:
+    raise Interrupted(signum)
+
+
+def stop_children() -> None:
+    for child in _CHILDREN:
+        if child.is_alive():
+            child.terminate()
+    for child in _CHILDREN:
+        child.join(10)
+        if child.is_alive():
+            child.kill()
+            child.join(10)
+
+
 def main() -> int:
-    """Exit 0, 1 or 2 as --help describes; 130 when interrupted; 3 for an error inside fshammer itself."""
+    """Exit 0, 1 or 2 as --help describes; 128 + the signal when interrupted (130 for Ctrl-C); 3 for an error
+    inside fshammer itself."""
     try:
         return hammer()
-    except KeyboardInterrupt:
-        print("fshammer: interrupted; any files it created are left in --dir", file=sys.stderr)
-        return 130
+    except (KeyboardInterrupt, Interrupted) as exc:
+        signum = exc.signum if isinstance(exc, Interrupted) else signal.SIGINT
+        stop_children()
+        print(f"fshammer: interrupted by {signal.Signals(signum).name}; the writers were stopped and any files "
+              f"it created are left in --dir", file=sys.stderr)
+        return 128 + signum
     except Exception:                                     # noqa: BLE001 — reported, with a distinct exit code
+        stop_children()
         traceback.print_exc()
         print("fshammer: internal error (exit 3); this is a fault in fshammer, not a FAIL", file=sys.stderr)
         return 3
@@ -5032,7 +5068,8 @@ def hammer() -> int:
                "exit 2 = invalid invocation: bad arguments, a non-empty --dir, or an --alt-dir that is not\n"
                "the same directory as --dir.\n"
                "exit 3 = an error inside fshammer itself (a traceback is printed); not a verdict on the filesystem.\n"
-               "exit 130 = interrupted (Ctrl-C); the files are left in --dir.\n\n"
+               "exit 128+N = stopped by signal N (130 for Ctrl-C, 143 for SIGTERM, 129 for SIGHUP); the writers\n"
+               "are stopped and the files are left in --dir.\n\n"
                "Disk use: about 1.5 GB at once with the defaults (plus 4 GiB on a filesystem without sparse\n"
                "files and at least 5 GiB free). If less than --fill-budget is free, it writes until writes are\n"
                "refused, and other programs on that filesystem get 'No space left on device' until it deletes\n"
@@ -5054,17 +5091,17 @@ def hammer() -> int:
                          "restart the server, or force-unmount and remount. It must leave the filesystem mounted "
                          "at the same path when it returns. Run once after "
                          "verification; every own-file and download, and their directories, are fsynced first "
-                         "and re-read and hashed after. Skipped if the run already failed.")
+                         "and re-read and hashed after. Skipped if the run already failed. A non-zero exit is a FAIL.")
     # separate processes on one mount share one client session; a second mount is a second session
-    ap.add_argument("--alt-dir", default=None,
+    ap.add_argument("--alt-dir", default=None, metavar="DIR",
                     help="the same directory through a second mount. Odd-numbered writers append to shared.bin "
                          "and watch observed.log through it, and the cross-mount lock and publish checks use it. "
-                         "Two NFS mounts of one server share one NFS client even with nosharecache, so the "
-                         "server sees a single client. Needs --procs 2 or more.")
+                         "Two NFS mounts of one server on one host (one network namespace) share one NFS client "
+                         "even with nosharecache, so the server sees a single client. Needs --procs 2 or more.")
     # reads the server's own copy, around the client cache. Only valid for a store that applies a write
     # before acknowledging it: the publish phase reads here right after its rename, which a correct
     # write-behind store will not have applied yet.
-    ap.add_argument("--server-root", default=None,
+    ap.add_argument("--server-root", default=None, metavar="DIR",
                     help="where the server stores these files, if readable from this host. Distinguishes a "
                          "storage loss from a stale client cache. Only for a store where a file fsynced through "
                          "the mount, with its directory fsynced, is immediately visible here with that content; "
@@ -5094,14 +5131,14 @@ def hammer() -> int:
                          "phase is rejected; a variant name that matches nothing is a FAIL.")
     ap.add_argument("--keep", action="store_true",
                     help="keep the files after a run with no failures. After a failed run they are always kept.")
-    ap.add_argument("--duration", type=int, default=300,
+    ap.add_argument("--duration", type=int, default=300, metavar="SECONDS",
                     help="total run time in seconds, split between phases in fixed shares (default 300). The "
                          "first pass of every variant always completes, even past this. 0 = one pass. A run "
                          "can end early if shared.bin reaches its size cap.")
-    ap.add_argument("--procs", type=int, default=4,
+    ap.add_argument("--procs", type=int, default=4, metavar="N",
                     help="concurrent writer processes (default 4). With 1, the contended variants and the "
                          "cross-writer checks are reported as gaps.")
-    ap.add_argument("--seed", type=int, default=1,
+    ap.add_argument("--seed", type=int, default=1, metavar="N",
                     help="seed for the random choices (default 1). With --duration 0 and the same --procs, each "
                          "writer makes the same choices; how many operations run, and their interleaving, "
                          "still depend on timing.")
@@ -5177,6 +5214,10 @@ def hammer() -> int:
              for w in range(args.procs)]
     for p in procs:
         p.start()
+    _CHILDREN[:] = procs
+    # after the writers started, so they keep the default handlers and terminate() still stops them
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, on_signal)
 
     failures, shared_expected, files_checked, total_bytes = 0, {}, 0, 0
     # counted separately so an unrelated failure does not mark the own-file hashes as mismatched
@@ -5287,7 +5328,7 @@ def hammer() -> int:
           f"re-checked here, {downloaded_bytes} bytes — "
           + ", ".join(f"{f}={n}" for f, n in sorted(flavour_total.items())))
     if not downloads_checked:
-        print("  FAIL: no writer finished a single download — the download phase did not run", file=sys.stderr)
+        print("  FAIL downloads: no writer finished a single download — the download phase did not run", file=sys.stderr)
         failures += 1
     else:
         # a flavour that never completed is a hole, so it is reported
@@ -5383,9 +5424,8 @@ def hammer() -> int:
               "wrote it. A client cannot serve itself a stale name it invented, so the cross-session half "
               "of the ordering oracles did not run.", file=sys.stderr)
     # always printed: a syscall cannot say how its answer was produced
-    print("  DECLARED GAP: nothing here can tell an answer served from an INDEX from one the server "
-          "rescanned to produce: both return the same bytes, at different speeds, and fshammer checks "
-          "results, not speed.", file=sys.stderr)
+    print("  DECLARED GAP: fshammer checks results, not speed: a correct answer that took a long time "
+          "to produce passes.", file=sys.stderr)
     for phase in VARIANT_PHASES:
         failures += report_phase(phase, totals[phase.key])
 
@@ -5479,7 +5519,7 @@ def hammer() -> int:
                 print(f"crash: running {args.crash_command!r}", flush=True)
                 crashed = subprocess.run(args.crash_command, shell=True, capture_output=True, text=True)
                 if crashed.returncode != 0:
-                    print(f"  FAIL: the crash command exited {crashed.returncode} — the store was NOT made to "
+                    print(f"  FAIL crash: the crash command exited {crashed.returncode} — the store was NOT made to "
                           f"lose anything, so nothing below this line is a durability result. "
                           f"{crashed.stderr.strip()[:400]}", file=sys.stderr)
                     failures += 1

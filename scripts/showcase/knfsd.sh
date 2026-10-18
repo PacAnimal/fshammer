@@ -23,7 +23,7 @@ mkdir -p "$export" "$a" "$b"
 "$here/ext4.sh" "$export"
 [ "$clients" = 2client ] && "$here/netns.sh" up
 opts="rw,sync,no_subtree_check,no_root_squash,fsid=0"
-echo "$export 127.0.0.1($opts) 10.231.0.0/24($opts)" | sudo tee /etc/exports >/dev/null
+echo "$export *($opts)" | sudo tee /etc/exports >/dev/null
 
 # started by hand rather than through systemd, so it also works in a container
 mountpoint -q /proc/fs/nfsd || sudo mount -t nfsd nfsd /proc/fs/nfsd

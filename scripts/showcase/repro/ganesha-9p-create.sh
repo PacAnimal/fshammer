@@ -1,9 +1,14 @@
 #!/bin/sh
-# NFS-Ganesha's 9P server with the Linux 9p client (9P2000.L): creating a file fails with EFAULT, although the
-# server's log shows it opened the new file; the directory then cannot be listed (EIO).
+# NFS-Ganesha's 9P server with the Linux 9p client (9P2000.L): creating a file fails with EFAULT, and the
+# directory then cannot be listed (EIO). Prints the negotiated msize, what Ganesha logged for the create, and
+# whether root can mkdir.
 set -eu
-dir="$("$(dirname "$0")/../ganesha.sh" 9p none | tail -n 1 | cut -d' ' -f1)"
-python3 - "$dir" <<'PY'
+base="${SHOWCASE_BASE:-/tmp/showcase}"
+dir="$(GANESHA_DEBUG=1 "$(dirname "$0")/../ganesha.sh" 9p none | tail -n 1 | cut -d' ' -f1)"
+echo "mount: $(grep " $dir " /proc/mounts | tr ',' '\n' | grep -E '^msize=|^cache=' | tr '\n' ' ')"
+echo "== create, as $(id -un)"
+status=0
+python3 - "$dir" <<'PY' || status=$?
 import os, sys
 d = sys.argv[1]
 problems = []
@@ -23,3 +28,8 @@ if problems:
 print("not reproduced")
 sys.exit(1)
 PY
+echo "== what Ganesha logged for the create"
+grep -E "TLCREATE|Opened fd=.* for file created-|RLERROR|RERROR\(_9P_TLCREATE" "$base/ganesha.log" | sed 's/^.*\] //' | tail -n 6 || true
+echo "== mkdir as root"
+sudo mkdir "$dir/as-root-$$" && echo "mkdir as root succeeded" || echo "mkdir as root failed"
+exit $status

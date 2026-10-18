@@ -19,6 +19,7 @@ import repros  # noqa: E402
 PAGE = "https://github.com/PacAnimal/fshammer/blob/main/showcase/README.md"
 WORKFLOW = "https://github.com/PacAnimal/fshammer/actions/workflows/showcase.yml"
 BADGE = "https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/PacAnimal/fshammer/status/{}.json"
+ROOT_LABELS = {"fixed": "fixed upstream", "open": "not established", "setup": "probably the setup"}
 CLASS_NAMES = (("defect", "likely defect"), ("follows", "follows from another failure"),
                ("open", "not established"), ("limitation", "documented"))
 
@@ -28,8 +29,9 @@ def targets() -> list[dict]:
     for line in (HERE / "targets.txt").read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
-        tid, name, version, section, root = (part.strip() for part in line.split("|"))
-        rows.append({"id": tid, "name": name, "version": version, "section": section, "root": root})
+        tid, name, version, section, root, defect_in = (part.strip() for part in line.split("|"))
+        rows.append({"id": tid, "name": name, "version": version, "section": section, "root": root,
+                     "defect_in": defect_in})
     return rows
 
 
@@ -55,7 +57,8 @@ def what_fails(t: dict) -> str:
     parts = []
     finish = finishing(tid)
     if t["root"]:
-        parts.append(f"not established: {t['root']}")
+        kind, _, what = t["root"].partition(": ")
+        parts.append(f"{ROOT_LABELS[kind]}: {what}")
     elif finish == "does not finish":
         parts.append("not established: fshammer does not finish")
     for tag, label in CLASS_NAMES:
@@ -72,6 +75,8 @@ def what_fails(t: dict) -> str:
             text += f" (+{len(sometimes)} in some runs)" if sometimes else ""
         if tag == "follows" and t["root"]:
             text = text.replace(label, "following from it", 1)
+        if tag == "defect":
+            text = text.replace(label, f"{label} ({t['defect_in']})", 1)
         # named when few enough to read; the section of showcase/README.md has the rest
         if tag == "defect" and n <= 4:
             text += " (" + ", ".join(f"`{s[len('FAIL '):-1]}`" for s in always + sometimes) + ")"
@@ -96,7 +101,8 @@ def showcase_table() -> str:
     reproduced, controls = {}, {}
     for entry in repros.entries():
         kind = reproduced if entry["expect"] == "reproduced" else controls
-        kind[entry["target"]] = kind.get(entry["target"], 0) + 1
+        for target in [entry["target"], *entry["also"]]:
+            kind[target] = kind.get(target, 0) + 1
     lines = ["| Target | Version | Distinct failing checks | Reproducers | Controls |", "|---|---|---|---|---|"]
     for t in targets():
         required, allowed, _ = checks(t["id"])
@@ -133,11 +139,18 @@ def main() -> int:
     if missing:
         print(f"targets.txt names sections showcase/README.md does not have: {', '.join(missing)}")
         return 1
-    # a likely defect is only called one with a reproducer behind it
-    with_repro = {e["target"] for e in repros.entries() if e["expect"] == "reproduced"}
-    unbacked = sorted(t["id"] for t in targets() if "defect" in checks(t["id"])[2].values() and t["id"] not in with_repro)
+    # a likely defect names its component
+    unnamed = [t["id"] for t in targets() if not t["defect_in"] and "defect" in checks(t["id"])[2].values()]
+    if unnamed:
+        print(f"targets.txt names no defect component for: {', '.join(unnamed)}")
+        return 1
+    # a likely defect is only called one with a reproducer behind it: every [defect] check must be covered
+    covered = {(target, f"FAIL {check}:") for e in repros.entries() if e["expect"] == "reproduced"
+               for target in [e["target"], *e["also"]] for check in e["covers"]}
+    unbacked = sorted(f"{t['id']}: {sig}" for t in targets() for sig, tag in checks(t["id"])[2].items()
+                      if tag == "defect" and (t["id"], sig) not in covered)
     if unbacked:
-        print(f"targets with a [defect] check and no reproducer in repros.txt: {', '.join(unbacked)}")
+        print("[defect] checks no reproducer in repros.txt covers:\n  " + "\n  ".join(unbacked))
         return 1
     listed = {t["id"] for t in targets()}
     files = {p.stem for p in (HERE / "expected").glob("*.txt")}

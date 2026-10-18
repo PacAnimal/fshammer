@@ -21,9 +21,16 @@ def entries() -> list[dict]:
     for line in (HERE / "repros.txt").read_text().splitlines():
         if not line.strip() or line.startswith("#"):
             continue
-        rid, target, expect, script, *args = line.split()
+        rid, target, expect, *rest = line.split()
         assert expect in ("reproduced", "not-reproduced"), f"{rid}: unknown outcome {expect!r}"
-        rows.append({"id": rid, "target": target, "expect": expect, "script": script, "args": args})
+        # optional covers=<check>,<check> (the failing checks it backs) and also=<target>,<target>
+        options = {}
+        while rest and "=" in rest[0]:
+            key, _, value = rest.pop(0).partition("=")
+            options[key] = value.split(",")
+        script, *args = rest
+        rows.append({"id": rid, "target": target, "expect": expect, "script": script, "args": args,
+                     "covers": options.get("covers", []), "also": options.get("also", [])})
     return rows
 
 

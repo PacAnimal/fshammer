@@ -1,2 +1,1 @@
-# all four writers wait in nlmclnt_call for the first NFSv3 lock, which is never answered
-TIMEOUT [open]
+? FAIL shared.bin: [limitation]

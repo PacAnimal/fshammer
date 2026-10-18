@@ -71,6 +71,9 @@ def signature(line: str) -> str:
     if subject.startswith("/"):
         subject = os.path.basename(subject)
     subject = re.sub(r"\d+", "N", subject)
+    # one signature for every own-file, whatever its kind: they are one check, applied per file
+    if re.fullmatch(r"wN-N-\w+\.bin", subject):
+        subject = "own files"
     return f"FAIL {subject}:" if subject else "FAIL:"
 
 
@@ -105,7 +108,14 @@ def record(args: argparse.Namespace, hammer_args: list[str]) -> int:
         code, out, err = run(fresh, args.timeout, args.log, f"-{i}")
         found = signatures(err) | ({"TIMEOUT"} if code is None else set())
         print(f"run {i}: exit {code}, {len(found)} FAIL signature(s)")
-        runs.append(found)
+        # exit 2 (invocation) and 3 (internal error) mean the workload did not run: no evidence either way
+        if code in (0, 1, None):
+            runs.append(found)
+        else:
+            print(f"run {i}: ignored, exit {code} means fshammer did not run the workload")
+    if not runs:
+        print("no run completed; nothing to propose")
+        return 1
     every = set.intersection(*runs)
     some = set.union(*runs) - every
     # keep the classification of signatures already listed; a new one needs one by hand

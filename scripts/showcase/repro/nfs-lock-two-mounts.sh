@@ -1,5 +1,5 @@
 #!/bin/sh
-# NFSv4, the same export mounted twice: a lock held through one mount does not exclude the same lock through
+# NFS, the same export mounted twice: a lock held through one mount does not exclude the same lock through
 # the other. Usage: nfs-lock-two-mounts.sh <knfsd|ganesha> <version> <same|2client>
 #   same     both mounts on one NFS client (the second with nosharecache)
 #   2client  the second mount from another network namespace, so the server sees two clients

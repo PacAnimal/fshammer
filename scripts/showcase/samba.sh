@@ -26,7 +26,8 @@ CONF
 printf 'showcase\nshowcase\n' | sudo smbpasswd -s -a "$(id -un)" >/dev/null
 sudo mkdir -p /run/samba
 testparm -s >/dev/null 2>&1 || { testparm -s >&2; exit 1; }
-pgrep -x smbd >/dev/null && sudo smbcontrol smbd reload-config || sudo smbd -D
+# the package may already have started smbd with its default configuration
+sudo systemctl restart smbd 2>/dev/null || { sudo pkill -x smbd || true; sudo smbd -D; }
 for _ in $(seq 50); do ss -ltn | grep -q ':445 ' && break; sleep 0.2; done
 
 opts="vers=3.1.1,username=$(id -un),password=showcase,uid=$(id -u),gid=$(id -g)"

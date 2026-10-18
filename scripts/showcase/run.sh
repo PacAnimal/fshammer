@@ -29,8 +29,7 @@ case "$target" in
     knfsd-v3)        pkgs=(nfs-kernel-server);         mounts="$("$here/knfsd.sh" 3)" ;;
     knfsd-v4.2)      pkgs=(nfs-kernel-server);         mounts="$("$here/knfsd.sh" 4.2)" ;;
     knfsd-v4.2-2client) pkgs=(nfs-kernel-server);      mounts="$("$here/knfsd.sh" 4.2 2client)" ;;
-    # its writers block at their first lock, so waiting long proves nothing more
-    ganesha-v3)      pkgs=();                          mounts="$("$here/ganesha.sh" nfs 3)"; timeout=600 ;;
+    ganesha-v3)      pkgs=();                          mounts="$("$here/ganesha.sh" nfs 3)" ;;
     ganesha-v4.0)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.0)" ;;
     ganesha-v4.1)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.1)" ;;
     ganesha-v4.2)    pkgs=();                          mounts="$("$here/ganesha.sh" nfs 4.2)" ;;
