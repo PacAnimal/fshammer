@@ -99,7 +99,7 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [NFS-Ganesha, NFSv4.2, mounted twice on one client](#nfs-ganesha) | 15.8 | 0, 2 optional | 1 | 1 |
 | [NFS-Ganesha, NFSv4.2, two clients](#nfs-ganesha) | 15.8 | 0, 2 optional |  | 1 |
 | [Samba, Linux SMB3 client, mounted twice](#samba) | 4.19.5 (Ubuntu) | 12, 1 optional | 2 |  |
-| [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4 | 1 |  |
+| [davfs2 over Apache mod_dav](#davfs2) | 1.7.3 | 4, 1 optional | 1 |  |
 | [davfs2, Ubuntu's package](#davfs2-170-ubuntu-2404) | 1.7.0 (Ubuntu) | 26, 1 optional | 1 |  |
 | [sshfs, mounted twice](#sshfs) | 3.7.6, libfuse 3.18.3 | 19 |  |  |
 | [bindfs, mounted once](#bindfs) | 1.18.4, libfuse 3.18.3 | 0 |  |  |
@@ -270,6 +270,8 @@ echo '/mnt/dav "" ""' >> /etc/davfs2/secrets
   the entry plus a 7-byte suffix, which leaves 248 bytes of the 255 a name may have.
 - **Not established:** `fstat()` on an open file that has been unlinked fails with ENOENT
   (`malice/unlink_open`).
+- **Not established:** in some runs, creating a chain of 26 nested one-letter directories with `makedirs()`
+  fails partway with ENOENT, a directory just created not being found (`namespace/alphabet_path`).
 
 Symlinks (ENOSYS), hard links (EPERM) and extended attributes (ENOTSUP) are refused with errors fshammer
 accepts, so those variants are reported as gaps.
