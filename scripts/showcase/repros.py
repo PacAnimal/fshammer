@@ -56,7 +56,8 @@ def main() -> int:
         outcome = "not-reproduced"
     else:
         outcome = "error"
-    result = {**entry, "outcome": outcome, "matched": entry["expect"] in (outcome, "sometimes")}
+    result = {**entry, "outcome": outcome, "matched": outcome == entry["expect"]
+              or entry["expect"] == "sometimes" and outcome in ("reproduced", "not-reproduced")}
     (log / "result.json").write_text(json.dumps(result))
     print(f"{rid}: {outcome}, expected {entry['expect']}")
     return 0 if result["matched"] else 1
