@@ -1,4 +1,4 @@
-# creating a file fails (ganesha-9p-create.sh); every check below follows from it
+# written data cannot be read back (EIO); every check below follows from it
 FAIL locks/exclusive_rmw: [follows]
 FAIL malice/enospc_is_honest: [follows]
 FAIL observed.log: [follows]

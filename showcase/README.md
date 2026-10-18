@@ -148,8 +148,8 @@ own hostname ([`netns.sh`](https://github.com/PacAnimal/fshammer/blob/main/scrip
 server sees two clients.
 
 ```sh
-echo "/srv/export 127.0.0.1(rw,sync,no_subtree_check,no_root_squash,fsid=0)" > /etc/exports
-exportfs -ra && systemctl start nfs-server
+echo "/srv/export *(rw,sync,no_subtree_check,no_root_squash,fsid=0)" > /etc/exports
+rpcbind; rpc.statd; exportfs -ra; rpc.mountd; rpc.nfsd 8
 mount -t nfs -o vers=4.2 127.0.0.1:/ /mnt/a
 mount -t nfs -o vers=4.2,nosharecache 127.0.0.1:/ /mnt/b
 ```
@@ -172,7 +172,7 @@ mount -t nfs -o vers=4.2,nosharecache 127.0.0.1:/ /mnt/b
 ## NFS-Ganesha
 
 NFS-Ganesha 15.9, built from its release with the VFS FSAL, exporting an ext4 directory, mounted twice with
-NFSv3, 4.0, 4.1 and 4.2 on one client as for knfsd, and with NFSv4.2 from two clients. The configuration, from
+NFSv3, 4.0, 4.1 and 4.2 on one client as for knfsd, and with NFSv4.2 from two clients. The configuration, abridged from
 [`ganesha.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/ganesha.sh):
 
 ```
@@ -272,7 +272,8 @@ echo '/mnt/dav "" ""' >> /etc/davfs2/secrets
 
 - **Likely defect (davfs2 1.7.3):** a file written, given an mtime with `utime()`, and closed reads back empty
   straight after `close()` (`identity/utimes_survives_the_flush`); read again 15 seconds later it has its
-  4096 bytes. The empty read is answered without a request to the server: in Apache's access log for the
+  4096 bytes. With FUSE the kernel learns a file's size only from the daemon's replies, so the empty read
+  reflects a size of 0 reported by davfs2, and it is answered without a request to the server: in Apache's access log for the
   file, the only request before it is a `LOCK`; the `PUT` follows 11 seconds later (davfs2 delays uploads by
   `delay_upload`, 10 seconds by default), and the only `GET` is the later re-read. The reproducer prints that log.
   [`davfs2-utime-before-close.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/davfs2-utime-before-close.sh):
@@ -425,7 +426,8 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   it the client's `v9fs_file_lock`
   (`fs/9p/vfs_file.c`) returns success without recording the lock. Reproduced on Ubuntu's 6.17.0-1022-azure
   kernel only; the cited code is the same in mainline v7.2.
-  [`9p-locks-9p2000.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-locks-9p2000.sh).
+  [`9p-locks-9p2000.sh`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-locks-9p2000.sh)
+  mounts with `cache=none`; the same `v9fs_file_lock` serves every 9P2000 cache mode, including `cache=mmap`.
 - **Not established (Linux 9p client or u9fs, `cache=mmap`):** a file appended to while another process calls
   `stat()` on it loses bytes `write()` reported (`observed.log`). With `cache=mmap`,
   `v9fs_vfs_getattr` starts writeback without waiting for it and then replaces the file size with the
@@ -540,7 +542,8 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
   ECONNRESET, and reading the written files back fails with EIO
   ("own file could not be read back"), so the other phases have nothing to work on; every failing check here
   follows from this. In the reproducer, which creates one file with `open()`, the create itself fails with
-  EFAULT ("Bad address") and listing the directory then fails with EIO.
+  EFAULT ("Bad address") and listing the directory then fails with EIO. The Linux 9p client returns EFAULT
+  when it cannot parse a reply (`p9pdu_readf`, `net/9p/protocol.c`).
   The reproducer turns on Ganesha's debug log and prints what it logged: the `TLCREATE` arrives and Ganesha
   opens the new file ("Opened fd=N for file created-…"), so the request reaches the server and the failure is
   in what comes back. It also prints the negotiated `msize`, 65536, and that `mkdir` as root fails with EIO. A capture of the 9P

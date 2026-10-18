@@ -66,7 +66,8 @@ if [ "$server" != 10.231.0.2 ]; then
     sudo sh -c "$start"
     probe="ss -ltn"
 fi
-for _ in $(seq 100); do $probe | grep -q ':2049 ' && $probe | grep -q ':564 ' && break; sleep 0.2; done
+port=2049; [ "$proto" = 9p ] && port=564
+for _ in $(seq 100); do $probe | grep -q ":$port " && break; sleep 0.2; done
 
 second=-
 case "$proto" in

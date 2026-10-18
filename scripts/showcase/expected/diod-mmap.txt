@@ -1,3 +1,4 @@
+# diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies
 FAIL locks/close_drops_every_lock: [limitation]
 FAIL locks/getlk_names_the_holder: [limitation]
 FAIL locks/ranges_are_ranges: [limitation]
@@ -9,4 +10,3 @@ FAIL shared.bin: [open]
 ? FAIL locks/unlock_splits_a_range: [limitation]
 # appends to observed.log race with stat() through the page cache in some runs
 ? FAIL observed.log: [open]
-# diod emulates POSIX locks with whole-file flock(), so which lock checks fail varies
