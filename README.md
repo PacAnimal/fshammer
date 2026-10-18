@@ -81,8 +81,8 @@ that wrote it, and whether the bytes were still wrong after the page cache was d
 | `0` | no `FAIL` lines. Each `DECLARED GAP` line is something the run did not test |
 | `1` | at least one `FAIL` line on stderr, or every writer died without reporting |
 | `2` | invalid invocation: bad arguments, a non-empty `--dir`, or an `--alt-dir` that is not the same directory |
-| `3` | an error inside fshammer itself; a traceback is printed. Not a verdict on the filesystem |
-| `128+N` | stopped by Ctrl-C (130), SIGTERM (143) or SIGHUP (129). The writers are stopped too, and the files are left in `--dir`. If the parent dies any other way (SIGKILL, for example), the writers stop by themselves within about a second |
+| `3` | an error in fshammer's main process; a traceback is printed. Not a verdict on the filesystem. An exception inside a writer or a check is a `FAIL` line naming its type and where it was raised, so a `FAIL` naming something other than an `OSError` (a `TypeError`, say) is likely a fault in fshammer |
+| `128+N` | stopped by Ctrl-C (130), SIGTERM (143) or SIGHUP (129). The writers are stopped too, and the files are left in `--dir`. If the parent dies any other way (SIGKILL, for example), the writers stop by themselves within about a second of it being reaped (normally at once, by whatever started it) |
 
 ## Phases
 
@@ -236,7 +236,7 @@ changes. Where it was practical the software is built from its latest release as
   another failure; orange `does not finish`: fshammer did not finish, and is recorded as not finishing, or
   sometimes not finishing, on this target;
 - red `changed`, `reproducer changed` or `setup failed`: the run differs from the record (including a hang that
-  was not recorded), a reproducer's outcome changed, or the target could not be set up.
+  was not recorded), a reproducer's outcome changed, or the job produced no result (setup failed, or the job died before fshammer finished).
 
 The badges come from the latest showcase run on `main` that published, and the table below is generated
 from the expectation files those runs are checked against. `N` counts distinct failing checks. What each failure is, which component it points at, and a standalone

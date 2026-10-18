@@ -4672,7 +4672,7 @@ def exit_with_parent(parent: int) -> None:
         time.sleep(1)
         try:
             os.kill(parent, 0)
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):     # gone, or the pid is someone else's now
             os._exit(1)
 
 
@@ -5087,10 +5087,11 @@ def hammer() -> int:
                "exit 1 = at least one FAIL line on stderr, or every writer died without reporting.\n"
                "exit 2 = invalid invocation: bad arguments, a non-empty --dir, or an --alt-dir that is not\n"
                "the same directory as --dir.\n"
-               "exit 3 = an error inside fshammer itself (a traceback is printed); not a verdict on the filesystem.\n"
+               "exit 3 = an error in fshammer's main process (a traceback is printed); not a verdict on the\n"
+               "filesystem. An exception inside a writer or a check is a FAIL line naming its type and source line.\n"
                "exit 128+N = stopped by Ctrl-C (130), SIGTERM (143) or SIGHUP (129); the writers are stopped and\n"
                "the files are left in --dir. If fshammer dies any other way (SIGKILL), the writers stop by themselves\n"
-               "within about a second.\n\n"
+               "within about a second of it being reaped.\n\n"
                "Disk use: about 1.5 GB at once with the defaults (plus 4 GiB on a filesystem without sparse\n"
                "files and at least 5 GiB free). If less than --fill-budget is free, it writes until writes are\n"
                "refused, and other programs on that filesystem get 'No space left on device' until it deletes\n"

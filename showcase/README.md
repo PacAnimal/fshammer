@@ -46,7 +46,7 @@ for 60 days.
   - orange `N failing checks`: at least one failing check is tagged `[defect]`, `[follows]` or `[open]`;
   - orange `does not finish`: fshammer did not finish, and the record says it does not, or may not;
   - red `changed`, `reproducer changed` or `setup failed`: the outcome differs from the record (a hang that
-    was not recorded included), a reproducer's outcome differs, or the target could not be set up.
+    was not recorded included), a reproducer's outcome differs, or the job produced no result (setup failed, or the job died before fshammer finished).
 
   `N` counts distinct failing checks in that run, optional ones included.
 - Running the workflow by hand with `mode: record` runs each target three times and writes a proposed
@@ -74,15 +74,16 @@ Only in a throwaway VM or container, with sudo. The setup scripts:
   the NLM grace period to 10 seconds;
 - start rpcbind, rpc.statd, rpc.mountd, nfsd, smbd, sshd, NFS-Ganesha, u9fs and diod, and restart smbd and
   Apache. u9fs (`-a none`) and diod (`--no-auth`) run as root without authentication;
-- for the two-client targets, create a network namespace `fshammer-client2` and a veth pair (`fshv0`, with
-  10.231.0.1/24 on the host side);
+- for the two-client targets and NFS-Ganesha NFSv3, create a network namespace `fshammer-client2` and a veth
+  pair (`fshv0`, with 10.231.0.1/24 on the host side); for NFS-Ganesha NFSv3, run rpcbind, rpc.statd and
+  NFS-Ganesha inside it;
 - install a setuid-root `fusermount3` (from libfuse 3.18.3) in `/usr/local/bin`, ahead of `/usr/bin` in the
   usual `PATH`; install davfs2 with `--sysconfdir=/etc`, which writes `/etc/davfs2`; install Ubuntu's diod
   package too, for the diod 1.0.24 control;
 - start servers, and leave everything mounted and running. Nothing is cleaned up.
 
 The servers are configured to work, not to be secure: most listen on every address, and the NFS exports, the
-Apache `/dav` share, u9fs and diod accept any client. u9fs and diod listen on 127.0.0.1.
+Apache `/dav` share, NFS-Ganesha's 9P server, u9fs and diod accept any client. u9fs and diod listen on 127.0.0.1.
 
 tmpfs, ext4, XFS, Btrfs and overlayfs are mounted once and bind-mounted a second time, so both mounts are
 one filesystem and fshammer reports that as a gap; ext4, XFS and Btrfs are on sparse loop images. overlayfs has
@@ -124,6 +125,8 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 (9P removed in 15.9) | 8 |  |  |
 | [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 (9P removed in 15.9) | 8 |  |  |
 <!-- /showcase-table -->
+
+Controls are reproducers expected not to reproduce: the same steps where the behaviour is absent.
 
 Each failure below is labelled:
 
@@ -193,7 +196,7 @@ EXPORT {
   they increment reads 1.
   fshammer's `locks/exclusive_rmw` hits it in every recorded run. It does not happen with knfsd. A packet capture
   would show which reply to the blocked LOCK the client reports as EIO.
-- Unlike knfsd, a lock held through one mount excludes the same lock through the other, with one client and
+- A lock held through one mount excludes the same lock through the other, with one client (unlike knfsd) and
   with two.
 - **Limitation:** `shared.bin` sometimes loses appends made through two mounts or two clients (optional), as for
   knfsd.
@@ -272,7 +275,9 @@ echo '/mnt/dav "" ""' >> /etc/davfs2/secrets
 
 - **Likely defect (davfs2 1.7.3):** a file written, given an mtime with `utime()`, and closed reads back empty
   straight after `close()` (`identity/utimes_survives_the_flush`); read again 15 seconds later it has its
-  4096 bytes. With FUSE the kernel learns a file's size only from the daemon's replies, so the empty read
+  4096 bytes. The kernel sets its own size to 4096 on the write but marks it stale, and the next size it uses
+  is the one davfs2 returns, in the reply to `utime()` or to the attribute request before the read (Linux
+  v7.2 `fs/fuse`: `fuse_write_update_attr`, `fuse_do_setattr`, `fuse_cache_read_iter`). So the empty read
   reflects a size of 0 reported by davfs2, and it is answered without a request to the server: in Apache's access log for the
   file, the only request before it is a `LOCK`; the `PUT` follows 11 seconds later (davfs2 delays uploads by
   `delay_upload`, 10 seconds by default), and the only `GET` is the later re-read. The reproducer prints that log.
@@ -332,7 +337,8 @@ sshfs $USER@127.0.0.1:/srv/export /mnt/b
   enables neither of libfuse's `use_ino` and `readdir_ino` options. So a listing reports inode 4294967295
   (`FUSE_UNKNOWN_INO`) where `stat()` reports libfuse's own number, and a hard link's two names have two
   numbers (`inode/*`, `walk/walk_manifest`, `namespace/hardlink`). fuse.h documents
-  both options; with `-o readdir_ino` the listing and `stat()` agree.
+  both options; with `-o readdir_ino` a listing reports libfuse's number for names libfuse has already looked
+  up, so it agrees with `stat()` for those.
 - **Limitation:** SFTP version 3 has no ctime, so ctime equals mtime (`identity/ctime_is_not_just_mtime`).
 - **Limitation:** sshfs does not implement locking, so locks are kept by the kernel per mount and a lock
   through one mount does not exclude the other (`locks/cross_mount_excludes`). fuse.h documents that without
