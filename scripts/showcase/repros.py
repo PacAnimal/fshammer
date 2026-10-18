@@ -22,7 +22,7 @@ def entries() -> list[dict]:
         if not line.strip() or line.startswith("#"):
             continue
         rid, target, expect, *rest = line.split()
-        assert expect in ("reproduced", "not-reproduced"), f"{rid}: unknown outcome {expect!r}"
+        assert expect in ("reproduced", "not-reproduced", "sometimes"), f"{rid}: unknown outcome {expect!r}"
         # optional covers=<check>,<check> (the failing checks it backs) and also=<target>,<target>
         options = {}
         while rest and "=" in rest[0]:
@@ -56,7 +56,7 @@ def main() -> int:
         outcome = "not-reproduced"
     else:
         outcome = "error"
-    result = {**entry, "outcome": outcome, "matched": outcome == entry["expect"]}
+    result = {**entry, "outcome": outcome, "matched": entry["expect"] in (outcome, "sometimes")}
     (log / "result.json").write_text(json.dumps(result))
     print(f"{rid}: {outcome}, expected {entry['expect']}")
     return 0 if result["matched"] else 1

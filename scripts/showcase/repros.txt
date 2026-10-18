@@ -1,5 +1,5 @@
 # Standalone reproducers, one per line: id, the showcase target it belongs to, the expected outcome
-# (reproduced or not-reproduced), then the script in repro/ and its arguments.
+# (reproduced, not-reproduced, or sometimes when runs differ), then the script in repro/ and its arguments.
 # A job fails when the outcome differs, so a fix upstream, or a change in the runner, shows up.
 davfs2-ubuntu-readdir            davfs2-ubuntu  reproduced      davfs2-readdir.sh
 davfs2-utime-before-close        davfs2         reproduced      covers=identity/utimes_survives_the_flush davfs2-utime-before-close.sh
@@ -24,7 +24,7 @@ u9fs-rename-at-root              u9fs-none      reproduced      u9fs-rename-at-r
 9p-append-diod-loose             diod-loose     reproduced      9p-append.sh diod loose
 9p-append-diod-mmap              diod-mmap      reproduced      9p-append.sh diod mmap
 9p-stat-during-append-u9fs       u9fs-mmap      reproduced      covers=observed.log 9p-stat-during-append.sh u9fs
-9p-stat-during-append-diod       diod-mmap      not-reproduced  9p-stat-during-append.sh diod
+9p-stat-during-append-diod       diod-mmap      sometimes       9p-stat-during-append.sh diod
 diod-rename-open-mmap            diod-mmap      reproduced      covers=malice/rename_live 9p-rename-open.sh diod mmap
 diod-rename-open-none            diod-none      reproduced      covers=malice/rename_live 9p-rename-open.sh diod none
 diod-rename-open-loose           diod-loose     reproduced      covers=malice/log_rotation,malice/rename_recreate,inode/three_rename_swap 9p-rename-open.sh diod loose

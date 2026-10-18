@@ -4,6 +4,7 @@ FAIL locks/ranges_are_ranges: [limitation]
 FAIL malice/log_rotation: [open]
 FAIL malice/rename_live: [defect]
 FAIL shared.bin: [open]
+? FAIL locks/conflict_excludes: [limitation]
 ? FAIL locks/shared_is_shared: [limitation]
 ? FAIL locks/unlock_splits_a_range: [limitation]
 # appends to observed.log race with stat() through the page cache in some runs

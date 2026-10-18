@@ -100,7 +100,7 @@ def readme_table() -> str:
 def showcase_table() -> str:
     reproduced, controls = {}, {}
     for entry in repros.entries():
-        kind = reproduced if entry["expect"] == "reproduced" else controls
+        kind = reproduced if entry["expect"] in ("reproduced", "sometimes") else controls
         for target in [entry["target"], *entry["also"]]:
             kind[target] = kind.get(target, 0) + 1
     lines = ["| Target | Version | Distinct failing checks | Reproducers | Controls |", "|---|---|---|---|---|"]

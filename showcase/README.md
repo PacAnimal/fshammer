@@ -119,7 +119,7 @@ uses `--crash-command`, so ENOSPC handling and durability across a crash are not
 | [9p: u9fs, `cache=mmap`](#u9fs-9p2000) | `fcec3e1` | 14, 1 optional; may not finish | 2 |  |
 | [9p: diod, `cache=none`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 1 | 1 |
 | [9p: diod, `cache=loose`](#diod-9p2000l) | 1.1.0 | 7, 3 optional | 2 | 1 |
-| [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 3 optional | 2 | 1 |
+| [9p: diod, `cache=mmap`](#diod-9p2000l) | 1.1.0 | 6, 4 optional | 3 |  |
 | [9p: NFS-Ganesha, `cache=none`](#nfs-ganesha-9p2000l) | 15.8 (9P removed in 15.9) | 8 | 1 |  |
 | [9p: NFS-Ganesha, `cache=loose`](#nfs-ganesha-9p2000l) | 15.8 (9P removed in 15.9) | 8 |  |  |
 | [9p: NFS-Ganesha, `cache=mmap`](#nfs-ganesha-9p2000l) | 15.8 (9P removed in 15.9) | 8 |  |  |
@@ -433,8 +433,9 @@ mount -t 9p -o trans=tcp,port=5640,aname=/srv/export,version=9p2000,uname=$USER,
   way; later appends start from the smaller size.
   [`9p-stat-during-append.sh u9fs`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-stat-during-append.sh):
   400 writes of 32 KiB, 13107200 bytes reported written; how much is missing varies between runs. The same
-  reproducer against diod, which goes through the same client sequence (`v9fs_vfs_getattr_dotl`), wrote all
-  13107200 bytes, so the server affects whether it happens; which component is at fault is not established.
+  reproducer against diod, which goes through the same client sequence (`v9fs_vfs_getattr_dotl`), loses bytes
+  in some runs and none in others (32768 bytes in one run), so it is not specific to u9fs, though u9fs loses
+  far more; which component is at fault is not established.
   Reproduced on 6.17.0-1022-azure only; the cited code is the same in mainline v7.2.
 - **Not established (Linux 9p client):** four processes appending to one file with `O_APPEND` on one mount,
   with `cache=none`, lose bytes. Each write goes through `netfs_unbuffered_write_iter()`
@@ -515,8 +516,7 @@ mount -t 9p -o trans=tcp,port=564,aname=/srv/export,version=9p2000.L,uname=$USER
   [`9p-append.sh diod loose`](https://github.com/PacAnimal/fshammer/blob/main/scripts/showcase/repro/9p-append.sh).
 - **Not established (`cache=mmap`):** in some runs `observed.log`, appended to while other processes call
   `stat()` on it, loses or tears blocks. `v9fs_vfs_getattr_dotl` has the same sequence as the 9P2000 path
-  described for u9fs above, but `9p-stat-during-append.sh`, which reproduces it with u9fs, wrote all 13107200
-  bytes with diod.
+  described for u9fs above; `9p-stat-during-append.sh` loses bytes with diod in some runs and none in others.
 - **Limitation:** diod implements POSIX locks with whole-file `flock()` (`diod_ops.c`: "Implement POSIX locks
   in terms of BSD flock locks"), so byte ranges, shared locks and `F_GETLK` do not behave as POSIX describes
   (`locks/*`). Which of the lock checks fail varies between runs.
