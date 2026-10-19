@@ -1,0 +1,440 @@
+[
+ {
+  "target": "bindfs-single",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "bindfs",
+  "exit": 1,
+  "fails": 2,
+  "classes": [
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "btrfs",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "davfs2-ubuntu",
+  "exit": 1,
+  "fails": 26,
+  "classes": [
+   "follows",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "davfs2-ubuntu-readdir": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "davfs2",
+  "exit": 1,
+  "fails": 4,
+  "classes": [
+   "defect",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "davfs2-utime-before-close": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "diod-loose",
+  "exit": 1,
+  "fails": 9,
+  "classes": [
+   "defect",
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "9p-append-diod-loose": "reproduced",
+   "diod-rename-open-loose": "reproduced",
+   "diod-ubuntu-rename-open-loose": "not-reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "diod-mmap",
+  "exit": 1,
+  "fails": 6,
+  "classes": [
+   "defect",
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "9p-append-diod-mmap": "reproduced",
+   "9p-stat-during-append-diod": "not-reproduced",
+   "diod-rename-open-mmap": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "diod-none",
+  "exit": 1,
+  "fails": 8,
+  "classes": [
+   "defect",
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "diod-rename-open-none": "reproduced",
+   "diod-ubuntu-rename-open-none": "not-reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ext4",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ganesha-9p-loose",
+  "exit": 1,
+  "fails": 8,
+  "classes": [
+   "follows"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ganesha-9p-mmap",
+  "exit": 1,
+  "fails": 8,
+  "classes": [
+   "follows"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ganesha-9p-none",
+  "exit": 1,
+  "fails": 8,
+  "classes": [
+   "follows"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "ganesha-9p-create": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ganesha-v3",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "ganesha-v3-lock": "not-reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ganesha-v4.0",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ganesha-v4.1",
+  "exit": 1,
+  "fails": 1,
+  "classes": [
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "ganesha-v4.1-lock-contention": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ganesha-v4.2-2client",
+  "exit": 1,
+  "fails": 1,
+  "classes": [
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "ganesha-v4-lock-two-clients": "not-reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "ganesha-v4.2",
+  "exit": 1,
+  "fails": 1,
+  "classes": [
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "ganesha-v4-lock-two-mounts": "not-reproduced",
+   "ganesha-v4.2-lock-contention": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "knfsd-v3",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "knfsd-v3-lock-two-mounts": "not-reproduced",
+   "knfsd-v3-lock": "not-reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "knfsd-v4.2-2client",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "knfsd-v4-lock-two-clients": "not-reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "knfsd-v4.2",
+  "exit": 1,
+  "fails": 2,
+  "classes": [
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "knfsd-v4-lock-two-mounts": "reproduced",
+   "knfsd-v4.2-lock-contention": "not-reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "overlayfs",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "rclone",
+  "exit": 1,
+  "fails": 13,
+  "classes": [
+   "defect",
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "rclone-truncate-grow": "reproduced",
+   "rclone-rename-over-open": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "samba",
+  "exit": 1,
+  "fails": 12,
+  "classes": [
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "samba-hardlink": "reproduced",
+   "samba-utime-before-close": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "sshfs",
+  "exit": 1,
+  "fails": 19,
+  "classes": [
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "tmpfs",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "u9fs-mmap",
+  "exit": 1,
+  "fails": 15,
+  "classes": [
+   "defect",
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "9p-locks-9p2000": "reproduced",
+   "9p-stat-during-append-u9fs": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "u9fs-none",
+  "exit": 1,
+  "fails": 14,
+  "classes": [
+   "defect",
+   "limitation",
+   "open"
+  ],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {
+   "9p-locks-9p2000": "reproduced",
+   "9p-unlink-open-u9fs": "reproduced",
+   "u9fs-rename-at-root": "reproduced",
+   "9p-append-u9fs-none": "reproduced"
+  },
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ },
+ {
+  "target": "xfs",
+  "exit": 0,
+  "fails": 0,
+  "classes": [],
+  "outcome": "as recorded",
+  "run": "https://github.com/PacAnimal/fshammer/actions/runs/39233918901",
+  "kernel": "6.17.0-1022-azure",
+  "reproducers": {},
+  "commit": "fd59b64fda6bae013a8d2b9db2b6a66d80b2e1b3",
+  "timestamp": "2026-10-19T10:15:27Z"
+ }
+]
